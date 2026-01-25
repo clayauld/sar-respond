@@ -1,0 +1,14 @@
+services:
+  rescue-respond:
+    build: .
+    container_name: rescue-respond
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      # Persist the database file outside the container
+      - ./pb_data:/pb/pb_data
+      # Mount migrations directory to auto-apply schema
+      - ./pb_migrations:/pb/pb_migrations
+    environment:
+      - TZ=America/Anchorage
