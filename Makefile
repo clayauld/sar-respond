@@ -53,13 +53,13 @@ lint:
 test: lint
 
 docker-up:
-	docker-compose up -d
+	docker compose up -d
 
 docker-down:
-	docker-compose down
+	docker compose down
 
 docker-build:
-	docker-compose build
+	docker compose build
 
 clean:
 	rm -rf dist node_modules pb_server
