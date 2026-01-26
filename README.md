@@ -15,9 +15,9 @@ If you just want to run the system without cloning the entire repository, run th
 
 ```bash
 mkdir sar-respond && cd sar-respond && \
-curl -O https://raw.githubusercontent.com/clayauld/sar-respond/main/docker-compose.yml \
-     -O https://raw.githubusercontent.com/clayauld/sar-respond/main/Caddyfile \
-     -o .env https://raw.githubusercontent.com/clayauld/sar-respond/main/.env.example && \
+curl -O https://raw.githubusercontent.com/clayauld/sar-respond/refs/heads/main/docker-compose.yml \
+     -O https://raw.githubusercontent.com/clayauld/sar-respond/refs/heads/main/Caddyfile \
+     -o .env https://raw.githubusercontent.com/clayauld/sar-respond/refs/heads/main/.env.example && \
 docker compose up -d
 ```
 
