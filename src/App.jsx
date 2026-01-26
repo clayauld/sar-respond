@@ -656,25 +656,31 @@ function MissionControl({ user, timeFormat }) {
 
     // 2. Subscribe to changes
     pb.collection('missions').subscribe('*', function (e) {
-      if (e.action === 'create' && e.record.status === 'active') {
-        setActiveMission(e.record);
-      }
-      if (e.action === 'update') {
-        if (e.record.status === 'closed' && activeMission?.id === e.record.id) {
-          setActiveMission(null);
-        } else if (e.record.status === 'active') {
-          setActiveMission(e.record);
+      setActiveMission(prev => {
+        if (e.action === 'create' && e.record.status === 'active') {
+          return e.record;
         }
-      }
-      if (e.action === 'delete' && activeMission?.id === e.record.id) {
-        setActiveMission(null);
-      }
+        if (e.action === 'update') {
+          if (e.record.status === 'closed' && prev?.id === e.record.id) {
+            return null;
+          } else if (e.record.status === 'active') {
+             // If we already have an active mission, usually we only update it if ID matches, 
+             // but here we seem to allow switching or updating the current one.
+             // Match original logic: always set.
+             return e.record;
+          }
+        }
+        if (e.action === 'delete' && prev?.id === e.record.id) {
+          return null;
+        }
+        return prev;
+      });
     });
 
     return () => {
       pb.collection('missions').unsubscribe('*');
     };
-  }, [activeMission]);
+  }, []);
 
   const handleEndMission = async () => {
     if (!window.confirm("Close ALL active missions?")) return;
