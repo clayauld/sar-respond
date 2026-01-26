@@ -6,25 +6,53 @@ A specialized response coordination system for rescue and response teams (mounta
 
 - **Frontend**: React + Vite + TailwindCSS
 - **Backend**: PocketBase (Go-based realtime backend)
-- **Deployment**: Docker / Docker Compose
+- **Integration**: Automated CalTopo Mission Map creation
+- **Infrastructure**: Docker Compose + Caddy Reverse Proxy
 
-## Prerequisites
+## Instant Deployment (One-Shot)
 
-- **Make**: For running unified commands.
-- **Node.js**: v18+ (for local development).
-- **Docker & Docker Compose**: (for containerized deployment).
+If you just want to run the system without cloning the entire repository, run this single command in your terminal:
 
-## Quick Start (Docker)
+```bash
+mkdir sar-respond && cd sar-respond && \
+curl -O https://raw.githubusercontent.com/clayauld/sar-respond/main/docker-compose.yml \
+     -O https://raw.githubusercontent.com/clayauld/sar-respond/main/Caddyfile \
+     -o .env https://raw.githubusercontent.com/clayauld/sar-respond/main/.env.example && \
+docker compose up -d
+```
 
-The easiest way to run the system is with Docker. This will stand up both the frontend and backend in a single container.
+This will download the necessary configuration files and start the latest production containers.
 
-1.  **Start the system**:
+**Important**: You should edit the `.env` file after downloading to set your Organization Name and CalTopo credentials.
+
+## Quick Start (Cloned Repo)
+
+If you have cloned this repository, use the following steps to start the system using Docker.
+
+1.  **Configure Environment**:
+
+    Copy the example environment file:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    Edit `.env` to configure:
+    - `ORG_NAME`: Your organization's name.
+    - `CALTOPO_CRED_ID/SECRET`: Credentials for CalTopo API integration.
+    - `CALTOPO_TEAM_ID`: The Team ID where maps should be created.
+
+2.  **Start the system**:
+
     ```bash
     make docker-up
     ```
-2.  **Access the application**:
-    - App: [http://localhost:8090](http://localhost:8090)
-    - Admin UI: [http://localhost:8090/\_/](http://localhost:8090/_/)
+
+    _(This runs `docker compose up -d`)_
+
+3.  **Access the application**:
+    - **App**: [http://localhost:8090](http://localhost:8090) (Proxied via Caddy)
+    - **PocketBase Admin**: [http://localhost:8090/\_/](http://localhost:8090/_/)
 
 To stop the system:
 
@@ -45,7 +73,7 @@ make install
 make setup-local
 ```
 
-### 2. Run Backend
+### 2. Run Backend (PocketBase)
 
 Start the PocketBase server. This utilizes the `pb_migrations` directory to automatically configure the database schema.
 
@@ -53,9 +81,25 @@ Start the PocketBase server. This utilizes the `pb_migrations` directory to auto
 make serve-pb
 ```
 
-_Keep this terminal running._
+- **URL**: [http://localhost:8090](http://localhost:8090)
 
-### 3. Run Frontend
+### 3. Run Backend (Python API)
+
+Start the CalTopo integration service.
+
+```bash
+# Install Python dependencies
+pip install -r backend_scripts/requirements.txt
+
+# Run the API
+python3 backend_scripts/api.py
+```
+
+- **URL**: [http://localhost:5000](http://localhost:5000)
+
+_Note: The frontend allows proxying to this service, but defaults to the Docker hostname `caltopo-api`. You may need to adjust `vite.config.js` or your hosts file for local development._
+
+### 4. Run Frontend
 
 In a new terminal window, start the React dev server:
 
@@ -63,10 +107,7 @@ In a new terminal window, start the React dev server:
 make dev
 ```
 
-- **Frontend**: [http://localhost:5173](http://localhost:5173)
-- **Backend/API**: [http://localhost:8090](http://localhost:8090)
-
-The frontend is configured to proxy API requests to port 8090 (defined in `vite.config.js`), so authentication and data fetching will work seamlessly.
+- **URL**: [http://localhost:5173](http://localhost:5173)
 
 ## Database & Admin Setup
 
@@ -77,30 +118,28 @@ The system comes with `pb_migrations` which will automatically create the necess
 1.  Go to [http://localhost:8090/\_/](http://localhost:8090/_/)
 2.  Create your first Admin account (email/password).
 3.  Use this account to manage users (the "Roster") and Missions.
-4.  **Importing Members**: You can import members using a **CSV** file or a **D4H Contact List PDF**.
-    - For PDFs, the system automatically parses "Operational--Field", "Operational--Base Only", and "Prospective" categories.
+4.  **Importing Members**: You can import members using a **CSV** file.
 
 ### Default Responder Login
 
 - **Username**: Member ID (e.g., `304`)
 - **Password**: Member ID (by default) - _Change this in production!_
 
-## Building for Production
+## Releasing New Versions
 
-To create a production build of the frontend:
+To build and push new Docker images for production:
 
-```bash
-make build
-```
+1.  **Bump Version**: Update the version number in `package.json`.
+2.  **Release**:
+    ```bash
+    make docker-release
+    ```
 
-The output will be in the `dist/` directory.
+This will:
 
-To rebuild the Docker image (which includes the new frontend build):
-
-```bash
-make docker-build
-make docker-up
-```
+1. Build the frontend (`npm run build`).
+2. Build new Docker images (`rescue-respond` and `caltopo-api`) tagged with the version and `latest`.
+3. Push them to the GitHub Container Registry.
 
 ## Testing
 
@@ -113,6 +152,8 @@ make test
 ## Project Structure
 
 - `src/`: React application source code.
+- `backend_scripts/`: Python API for CalTopo integration.
 - `pb_migrations/`: Database schema definitions (JS migrations).
 - `docker-compose.yml`: Production orchestration config.
+- `Caddyfile`: Reverse proxy configuration.
 - `vite.config.js`: Frontend build and proxy configuration.
