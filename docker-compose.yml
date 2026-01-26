@@ -20,8 +20,6 @@ services:
     volumes:
       # Persist the database file outside the container
       - ./pb_data:/pb/pb_data
-      # Mount migrations directory to auto-apply schema
-      - ./pb_migrations:/pb/pb_migrations
     environment:
       - TZ=America/Anchorage
     env_file:
@@ -34,7 +32,6 @@ services:
     container_name: sar-caltopo-api
     restart: unless-stopped
     # Ports removed to keep internal-only
-    volumes:
-      - ./backend_scripts:/app
+    # Code is baked into the image
     env_file:
       - .env

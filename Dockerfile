@@ -24,6 +24,9 @@ RUN unzip /tmp/pb.zip -d /pb/
 # Copy the built React app from Stage 1 into PocketBase's public directory
 COPY --from=frontend-builder /app/dist /pb/pb_public
 
+# Copy migrations so they are baked into the image
+COPY pb_migrations /pb/pb_migrations
+
 # Create a volume for persistent data
 VOLUME /pb/pb_data
 
