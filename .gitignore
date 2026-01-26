@@ -31,3 +31,32 @@ pb_data/
 .env
 .env.*
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+dists/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+var/
+
+# Virtual environments (uv, venv)
+.venv/
+venv/
+ENV/
+env/
+.env/
+
+# uv
+.uv/
+uv.lock
+# Exclude the exact python version file if you don't want to enforce it for everyone
+.python-version
