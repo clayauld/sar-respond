@@ -2,6 +2,8 @@
 
 A specialized response coordination system for rescue and response teams (mountain rescue, avalanche rescue, and other SAR organizations). This application allows responders to view active missions, set their status (responding/standby), and provides admins with a live dashboard of responding resources.
 
+Additionally, the system features **automated CalTopo map generation**, allowing dispatchers to instantly create and link shared mission maps based on initial incident coordinates.
+
 ## System Overview
 
 - **Frontend**: React + Vite + TailwindCSS
