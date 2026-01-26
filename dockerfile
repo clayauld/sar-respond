@@ -27,7 +27,11 @@ COPY --from=frontend-builder /app/dist /pb/pb_public
 # Create a volume for persistent data
 VOLUME /pb/pb_data
 
+# Copy and set entrypoint
+COPY docker-entrypoint.sh /pb/docker-entrypoint.sh
+RUN chmod +x /pb/docker-entrypoint.sh
+
 EXPOSE 8090
 
-# Start PocketBase and instruct it to listen on all interfaces
-CMD ["/pb/pocketbase", "serve", "--http=0.0.0.0:8090"]
+# Entrypoint handles startup
+ENTRYPOINT ["/pb/docker-entrypoint.sh"]

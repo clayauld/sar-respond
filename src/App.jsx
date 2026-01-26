@@ -86,8 +86,8 @@ export default function RescueRespond() {
               <ShieldAlert className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-lg leading-tight hidden sm:block">Alaska Mountain Rescue Group</h1>
-              <h1 className="font-bold text-lg leading-tight sm:hidden">AMRG</h1>
+              <h1 className="font-bold text-lg leading-tight hidden sm:block">{window._env_?.ORG_NAME || import.meta.env.ORG_NAME || 'SAR Group'}</h1>
+              <h1 className="font-bold text-lg leading-tight sm:hidden">{window._env_?.ORG_ABBR || import.meta.env.ORG_ABBR || 'SAR'}</h1>
               <p className="text-xs text-slate-400">Response System</p>
             </div>
           </div>
@@ -793,21 +793,69 @@ function CreateMissionForm({ user }) {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [mapUrl, setMapUrl] = useState('');
+  const [lat, setLat] = useState('');
+  const [lon, setLon] = useState('');
+  const [icpLat, setIcpLat] = useState('');
+  const [icpLon, setIcpLon] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
 
   const handleStart = async (e) => {
     e.preventDefault();
     if (!title || !location) return;
     
     setIsSubmitting(true);
+    setStatusMsg('');
+    
+    let finalMapUrl = mapUrl;
+
+    // Auto-create map if URL is empty
+    if (!finalMapUrl) {
+        setStatusMsg("Creating CalTopo Map...");
+        try {
+            const lkp = (lat && lon) ? [parseFloat(lat), parseFloat(lon)] : null;
+            const icp = (icpLat && icpLon) ? [parseFloat(icpLat), parseFloat(icpLon)] : null;
+            
+            // Use relative path to leverage Vite proxy (dev) or Nginx (prod)
+            const res = await fetch('/api/caltopo/create-map', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title,
+                    location,
+                    lkp,
+                    icp
+                })
+            });
+            
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || "Map creation failed");
+            }
+            
+            const data = await res.json();
+            finalMapUrl = data.map_url;
+            setStatusMsg("Map created! Launching mission...");
+        } catch (err) {
+            console.error("Map creation error", err);
+            const proceed = window.confirm(`Failed to auto-create map: ${err.message}\n\nProceed without a map?`);
+            if (!proceed) {
+                setIsSubmitting(false);
+                setStatusMsg("Cancelled.");
+                return;
+            }
+        }
+    }
+
     try {
       await pb.collection('missions').create({
         title,
         location,
-        mapUrl,
+        mapUrl: finalMapUrl,
         status: 'active'
       });
-      setTitle(''); setLocation(''); setMapUrl('');
+      setTitle(''); setLocation(''); setMapUrl(''); setLat(''); setLon('');
+      setStatusMsg('');
     } catch (err) {
       console.error(err);
       alert("Error creating mission");
@@ -826,7 +874,7 @@ function CreateMissionForm({ user }) {
           <label className="block text-sm font-bold text-slate-700 mb-2">Mission Title</label>
           <input 
             className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all placeholder:text-slate-400" 
-            placeholder="e.g. Overdue Hiker - Flattop Mountain"
+            placeholder={window._env_?.MISSION_TITLE_PLACEHOLDER || "e.g. Overdue Hiker - Lost Mountain"}
             value={title} onChange={e => setTitle(e.target.value)} required
           />
         </div>
@@ -835,28 +883,73 @@ function CreateMissionForm({ user }) {
           <label className="block text-sm font-bold text-slate-700 mb-2">Response Location (ICP)</label>
           <input 
             className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all placeholder:text-slate-400" 
-            placeholder="e.g. Glen Alps Parking Lot"
+            placeholder={window._env_?.MISSION_LOCATION_PLACEHOLDER || "e.g. Trailhead Parking Lot"}
             value={location} onChange={e => setLocation(e.target.value)} required
           />
         </div>
 
+        <div className="border-t border-b border-slate-100 py-4">
+             <label className="block text-sm font-bold text-slate-700 mb-2">Incident Command Post (ICP)</label>
+             <div className="grid grid-cols-2 gap-4">
+                 <input 
+                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
+                    placeholder="ICP Latitude"
+                    type="number" step="any"
+                    value={icpLat} onChange={e => setIcpLat(e.target.value)}
+                  />
+                  <input 
+                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
+                    placeholder="ICP Longitude"
+                    type="number" step="any"
+                    value={icpLon} onChange={e => setIcpLon(e.target.value)}
+                  />
+             </div>
+        </div>
+
+        <div className="border-b border-slate-100 pb-4">
+             <label className="block text-sm font-bold text-slate-700 mb-2">Last Known Point (LKP)</label>
+             <div className="grid grid-cols-2 gap-4">
+                 <input 
+                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
+                    placeholder="LKP Latitude"
+                    type="number" step="any"
+                    value={lat} onChange={e => setLat(e.target.value)}
+                  />
+                  <input 
+                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
+                    placeholder="LKP Longitude"
+                    type="number" step="any"
+                    value={lon} onChange={e => setLon(e.target.value)}
+                  />
+             </div>
+        </div>
+
         <div>
           <label className="block text-sm font-bold text-slate-700 mb-2">
-            Map URL <span className="text-slate-400 font-normal ml-1">(Optional)</span>
+            Map URL <span className="text-slate-400 font-normal ml-1">(Optional override)</span>
           </label>
           <input 
             className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all placeholder:text-slate-400" 
-            placeholder="e.g. https://caltopo.com/m/..."
+            placeholder="Leave empty to auto-create CalTopo map..."
             value={mapUrl} onChange={e => setMapUrl(e.target.value)}
           />
+          <p className="text-xs text-slate-400 mt-1">
+              If left blank, a new map will be generated in the Team Account.
+          </p>
         </div>
         
         <button 
           disabled={isSubmitting} 
           className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-200 active:scale-[0.99] flex items-center justify-center gap-2"
         >
-            <Radio className="w-5 h-5 animate-pulse" />
-            BROADCAST ALERT
+            {isSubmitting ? (
+                <span>{statusMsg || 'Processing...'}</span>
+            ) : (
+                <>
+                    <Radio className="w-5 h-5 animate-pulse" />
+                    BROADCAST ALERT
+                </>
+            )}
         </button>
       </form>
     </div>

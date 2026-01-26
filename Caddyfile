@@ -1,0 +1,11 @@
+:80
+
+# API reverse proxy with path stripping
+handle_path /api/caltopo/* {
+	reverse_proxy caltopo-api:5000
+}
+
+# Default frontend reverse proxy
+handle {
+	reverse_proxy rescue-respond:8090
+}

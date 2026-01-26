@@ -1,4 +1,4 @@
-# AMRG Rescue Respond System Makefile
+# SAR Rescue Respond System Makefile
 
 PB_VERSION := 0.22.21
 PB_FILE := pocketbase_$(PB_VERSION)_linux_amd64.zip
@@ -60,6 +60,24 @@ docker-down:
 
 docker-build:
 	docker compose build
+
+docker-prod:
+	docker compose down
+	docker compose up -d --build
+
+# Release Workflow
+# Extracts version from package.json (e.g. "0.0.1")
+# Builds images tagged with that version AND 'latest'
+# Pushes both tags to GHCR
+VERSION := $(shell grep '"version":' package.json | cut -d '"' -f 4)
+
+docker-release:
+	@echo "Releasing version $(VERSION)..."
+	TAG=$(VERSION) docker compose build rescue-respond caltopo-api
+	TAG=latest docker compose build rescue-respond caltopo-api
+	TAG=$(VERSION) docker compose push rescue-respond caltopo-api
+	TAG=latest docker compose push rescue-respond caltopo-api
+	@echo "Successfully pushed version $(VERSION) and latest to GHCR."
 
 clean:
 	rm -rf dist node_modules pb_server

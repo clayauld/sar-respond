@@ -29,7 +29,6 @@ pb_data/
 
 # Environment
 .env
-.env.*
 
 # Python
 __pycache__/

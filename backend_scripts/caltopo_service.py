@@ -95,12 +95,29 @@ class CalTopoService:
         result = self._send_request("GET", full_endpoint)
         return result['result']['state']
 
-    def create_mission_map(self, mission_name, lkp_coords=None):
+    def create_mission_map(self, mission_name, lkp_coords=None, icp_coords=None):
         """
         Orchestrates the creation of a new mission map.
+        - Appends date to mission_name if missing.
+        - Injects LKP and ICP markers.
         """
         print(f"Creating map: {mission_name}...")
         
+        # Step 0: Date Logic
+        import re
+        from datetime import datetime
+        
+        # 1. Strip existing dates from input title
+        # Matches: YYYY-MM-DD, DD-MM-YYYY, MM/DD/YY, MM/DD
+        # Also cleans up surrounding whitespace/hyphens
+        clean_name = re.sub(r'\s*[\-]?\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[/-]\d{1,2}([-/]\d{2,4})?)\s*', '', mission_name)
+        clean_name = clean_name.strip().rstrip('-').strip()
+        
+        # 2. Append standard date suffix
+        today_str = datetime.now().strftime('%m-%d-%Y')
+        mission_name = f"{today_str} - {clean_name}"
+        print(f"Final map name: {mission_name}")
+
         # Step 1: Fetch Template
         try:
             geo_state = self.get_template_geojson()
@@ -113,9 +130,12 @@ class CalTopoService:
             print(f"Failed to fetch template: {e}")
             geo_state = {"features": []}
 
-        # Step 2: Inject LKP
+        # Step 2: Inject Markers
+        features = geo_state.setdefault('features', [])
+        
+        # Inject LKP
         if lkp_coords:
-            lkp_feature = {
+            features.append({
                 "type": "Feature",
                 "geometry": {
                     "type": "Point",
@@ -124,11 +144,26 @@ class CalTopoService:
                 "properties": {
                     "title": "LKP",
                     "description": "Last Known Point",
-                    "marker-symbol": "star",
+                    "marker-symbol": "icon-RCECTHRL-24-0.5-0.5-tf", # Custom LKP Icon
                     "marker-color": "FF0000"
                 }
-            }
-            geo_state.setdefault('features', []).append(lkp_feature)
+            })
+            
+        # Inject ICP
+        if icp_coords:
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": icp_coords
+                },
+                "properties": {
+                    "title": "ICP",
+                    "description": "Incident Command Post",
+                    "marker-symbol": "icon-U3RDDQVF-24-0.5-0.5-tf", # Custom ICP Icon
+                    "marker-color": "FF0000"
+                }
+            })
 
         # Step 3: Payload
         payload = {

@@ -1,10 +1,22 @@
 services:
-  rescue-respond:
-    build: .
-    container_name: rescue-respond
+  caddy:
+    image: caddy:alpine
+    container_name: caddy-proxy
     restart: unless-stopped
     ports:
-      - "8090:8090"
+      - "8080:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - rescue-respond
+      - caltopo-api
+
+  rescue-respond:
+    build: .
+    image: ghcr.io/clayauld/sar-respond-frontend:${TAG:-latest}
+    container_name: rescue-respond
+    restart: unless-stopped
+    # Ports removed to keep internal-only
     volumes:
       # Persist the database file outside the container
       - ./pb_data:/pb/pb_data
@@ -12,3 +24,17 @@ services:
       - ./pb_migrations:/pb/pb_migrations
     environment:
       - TZ=America/Anchorage
+    env_file:
+      - .env
+
+  caltopo-api:
+    build: 
+      context: ./backend_scripts
+    image: ghcr.io/clayauld/sar-respond-caltopo-api:${TAG:-latest}
+    container_name: sar-caltopo-api
+    restart: unless-stopped
+    # Ports removed to keep internal-only
+    volumes:
+      - ./backend_scripts:/app
+    env_file:
+      - .env
