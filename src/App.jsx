@@ -191,7 +191,7 @@ function LoginScreen() {
       <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden z-10">
         <div className="bg-red-600 p-6 text-center">
           <ShieldAlert className="w-16 h-16 text-white mx-auto mb-2" />
-          <h1 className="text-2xl font-bold text-white">AKMR Login</h1>
+          <h1 className="text-2xl font-bold text-white">{window._env_?.ORG_ABBR || import.meta.env.ORG_ABBR || 'SAR'} Login</h1>
         </div>
         
         <form onSubmit={handleLogin} className="p-8 space-y-6">
