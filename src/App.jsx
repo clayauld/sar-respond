@@ -69,6 +69,13 @@ export default function RescueRespond() {
     });
   }, []);
 
+  useEffect(() => {
+    if (user && user.requirePasswordReset && !showChangePw) {
+        setShowChangePw(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   const handleLogout = () => {
     pb.authStore.clear();
   };
@@ -140,6 +147,7 @@ export default function RescueRespond() {
             user={user} 
             pb={pb} 
             onClose={() => setShowChangePw(false)} 
+            force={user && user.requirePasswordReset}
           />
       )}
 
@@ -825,7 +833,10 @@ function CreateMissionForm({ user }) {
             // Use relative path to leverage Vite proxy (dev) or Nginx (prod)
             const res = await fetch('/api/caltopo/create-map', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': pb.authStore.token
+                },
                 body: JSON.stringify({
                     title,
                     location,
