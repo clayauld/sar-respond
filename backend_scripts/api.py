@@ -37,7 +37,7 @@ def check_auth(token):
         if resp.status_code == 200:
             return resp.json() # Returns { token: ..., record: { ... } }
         return None
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         print(f"Auth check failed: {e}", file=sys.stderr)
         return None
 
