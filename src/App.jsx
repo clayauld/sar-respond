@@ -803,14 +803,56 @@ function MissionControl({ user, timeFormat }) {
   );
 }
 
+// --- Coordinate Parser ---
+const parseCoordinate = (input) => {
+    if (!input || !input.trim()) return null;
+    const clean = input.trim();
+
+    // 1. DD: "61.10478, -149.79553"
+    // Allow space or comma separator
+    const ddMatch = clean.match(/^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/);
+    if (ddMatch) {
+        return [parseFloat(ddMatch[1]), parseFloat(ddMatch[3])];
+    }
+
+    // 2. DDM: "61°06.287', -149°47.732'" or "61 06.287 -149 47.732"
+    const parseDDMComponent = (str) => {
+        // Matches: 61°06.287' or 61 06.287 or -149...
+        // Support standard and smart quotes
+        const match = str.match(/(-?\d+)[°\s]+(\d+(\.\d+)?)['’]?\s*([NSEW])?/i);
+        if (!match) return null;
+        let deg = parseFloat(match[1]);
+        let min = parseFloat(match[2]);
+        let dir = match[4];
+        
+        let val = Math.abs(deg) + (min / 60);
+        if (deg < 0 || (dir && (dir.toUpperCase() === 'S' || dir.toUpperCase() === 'W'))) {
+            val = -val;
+        }
+        return val;
+    };
+
+    // Split by comma or space, but only if it's not within a quoted string (not strictly necessary now, but good for robustness)
+    const parts = clean.split(/,\s*|\s+/).filter(Boolean);
+
+    if (parts.length === 2) {
+        const lat = parseDDMComponent(parts[0]);
+        const lon = parseDDMComponent(parts[1]);
+        if (lat !== null && lon !== null) return [lat, lon];
+    }
+    
+    return null;
+};
+
 function CreateMissionForm({ user }) {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [mapUrl, setMapUrl] = useState('');
-  const [lat, setLat] = useState('');
-  const [lon, setLon] = useState('');
-  const [icpLat, setIcpLat] = useState('');
-  const [icpLon, setIcpLon] = useState('');
+  
+  // Unified inputs
+  const [lkpInput, setLkpInput] = useState('');
+  const [icpInput, setIcpInput] = useState('');
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
@@ -825,11 +867,24 @@ function CreateMissionForm({ user }) {
 
     // Auto-create map if URL is empty
     if (!finalMapUrl) {
+        setStatusMsg("Parsing coordinates...");
+        
+        const lkp = parseCoordinate(lkpInput);
+        const icp = parseCoordinate(icpInput);
+        
+        if (lkpInput && !lkp) {
+            alert("Could not parse LKP Coordinate. Please use basic DDM (Degrees Decimal Minutes) or DD format.");
+            setIsSubmitting(false);
+            return;
+        }
+        if (icpInput && !icp) {
+            alert("Could not parse ICP Coordinate. Please use basic DDM (Degrees Decimal Minutes) or DD format.");
+            setIsSubmitting(false);
+            return;
+        }
+
         setStatusMsg("Creating CalTopo Map...");
         try {
-            const lkp = (lat && lon) ? [parseFloat(lat), parseFloat(lon)] : null;
-            const icp = (icpLat && icpLon) ? [parseFloat(icpLat), parseFloat(icpLon)] : null;
-            
             // Use relative path to leverage Vite proxy (dev) or Nginx (prod)
             const res = await fetch('/api/caltopo/create-map', {
                 method: 'POST',
@@ -840,10 +895,12 @@ function CreateMissionForm({ user }) {
                 body: JSON.stringify({
                     title,
                     location,
-                    lkp,
-                    icp
+                    lkp, // [lat, lon]
+                    icp  // [lat, lon]
                 })
             });
+
+
             
             if (!res.ok) {
                 const errData = await res.json();
@@ -871,11 +928,12 @@ function CreateMissionForm({ user }) {
         mapUrl: finalMapUrl,
         status: 'active'
       });
-      setTitle(''); setLocation(''); setMapUrl(''); setLat(''); setLon('');
+      setTitle(''); setLocation(''); setMapUrl(''); 
+      setLkpInput(''); setIcpInput('');
       setStatusMsg('');
     } catch (err) {
       console.error(err);
-      alert("Error creating mission");
+      alert(`Error creating mission: ${err.message || JSON.stringify(err)}`);
     }
     setIsSubmitting(false);
   };
@@ -905,40 +963,29 @@ function CreateMissionForm({ user }) {
           />
         </div>
 
-        <div className="border-t border-b border-slate-100 py-4">
-             <label className="block text-sm font-bold text-slate-700 mb-2">Incident Command Post (ICP)</label>
-             <div className="grid grid-cols-2 gap-4">
-                 <input 
-                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
-                    placeholder="ICP Latitude"
-                    type="number" step="any"
-                    value={icpLat} onChange={e => setIcpLat(e.target.value)}
-                  />
-                  <input 
-                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
-                    placeholder="ICP Longitude"
-                    type="number" step="any"
-                    value={icpLon} onChange={e => setIcpLon(e.target.value)}
-                  />
-             </div>
-        </div>
-
-        <div className="border-b border-slate-100 pb-4">
-             <label className="block text-sm font-bold text-slate-700 mb-2">Last Known Point (LKP)</label>
-             <div className="grid grid-cols-2 gap-4">
-                 <input 
-                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
-                    placeholder="LKP Latitude"
-                    type="number" step="any"
-                    value={lat} onChange={e => setLat(e.target.value)}
-                  />
-                  <input 
-                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
-                    placeholder="LKP Longitude"
-                    type="number" step="any"
-                    value={lon} onChange={e => setLon(e.target.value)}
-                  />
-             </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">ICP Coordinate (Optional)</label>
+              <input 
+                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all font-mono text-sm" 
+                placeholder="DDM or DD (e.g. 61°06.28' ...)"
+                value={icpInput} onChange={e => setIcpInput(e.target.value)}
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                  Point will be added to the map if provided
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">LKP Coordinate (Optional)</label>
+              <input 
+                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all font-mono text-sm" 
+                placeholder="DDM or DD (e.g. 61°06.28' -149°47.73')"
+                value={lkpInput} onChange={e => setLkpInput(e.target.value)}
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                  Preferred: DDM (61°06.28 -149°47.73)
+              </p>
+            </div>
         </div>
 
         <div>

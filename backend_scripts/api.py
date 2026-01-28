@@ -48,7 +48,14 @@ def require_admin(f):
         if not auth_header:
             return jsonify({"error": "Missing Authorization Header"}), 401
 
+        # Extract token if strictly 'Bearer <token>' or just '<token>'
+        # The frontend sends 'Bearer <token>'
+        token = auth_header
+        if auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
+        
         user_data = check_auth(auth_header)
+        
         if not user_data:
             return jsonify({"error": "Invalid Token or Authentication Failed"}), 401
 
@@ -57,74 +64,20 @@ def require_admin(f):
         if user_record.get("role") != "Admin":
             return jsonify({"error": "Forbidden: Admin Access Required"}), 403
 
+        # Store user info in request context if needed, or just proceed
+        # For now, we print in the route, so we might want to attach it to request
+        request.user_data = user_data
+        
         return f(*args, **kwargs)
     return decorated_function
-
-def check_auth(token):
-    """
-    Verifies the token against the PocketBase instance.
-    Returns the user data if valid, None otherwise.
-    """
-    try:
-        # Internal URL for PocketBase within the Docker network
-        # Since 'caddy' maps 8090:80 but 'rescue-respond' usually runs on 8090 internally
-        # We try to hit the container directly.
-        # Based on docker-compose, 'rescue-respond' is the service name.
-        pb_url = "http://rescue-respond:8090/api/collections/users/auth-refresh"
-        
-        headers = {
-            "Authorization": f"Bearer {token}"
-        }
-        
-        response = requests.post(pb_url, headers=headers, timeout=5)
-        
-        if response.status_code == 200:
-            return response.json()
-        return None
-    except Exception as e:
-        print(f"Auth check failed: {e}", file=sys.stderr)
-        return None
-
-def check_auth(token):
-    """
-    Verifies the token against the PocketBase instance.
-    Returns the user data if valid, None otherwise.
-    """
-    try:
-        # Internal URL for PocketBase within the Docker network
-        # Since 'caddy' maps 8090:80 but 'rescue-respond' usually runs on 8090 internally
-        # We try to hit the container directly.
-        # Based on docker-compose, 'rescue-respond' is the service name.
-        pb_url = "http://rescue-respond:8090/api/collections/users/auth-refresh"
-        
-        headers = {
-            "Authorization": f"Bearer {token}"
-        }
-        
-        response = requests.post(pb_url, headers=headers, timeout=5)
-        
-        if response.status_code == 200:
-            return response.json()
-        return None
-    except Exception as e:
-        print(f"Auth check failed: {e}", file=sys.stderr)
-        return None
 
 @app.route('/create-map', methods=['POST'])
 @limiter.limit("5 per minute")
 @require_admin
 def create_map():
-    # 1. Auth Check
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Missing or malformed Authorization header"}), 401
+    # User is already authenticated via @require_auth
+    user_data = getattr(request, 'user_data', {})
     
-    token = auth_header.split(" ", 1)[1]
-    user_data = check_auth(token)
-    
-    if not user_data:
-        return jsonify({"error": "Invalid or expired token"}), 401
-
     data = request.json
     if not data:
         return jsonify({"error": "No JSON payload provided"}), 400
