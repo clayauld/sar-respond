@@ -825,7 +825,10 @@ function CreateMissionForm({ user }) {
             // Use relative path to leverage Vite proxy (dev) or Nginx (prod)
             const res = await fetch('/api/caltopo/create-map', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${pb.authStore.token}`
+                },
                 body: JSON.stringify({
                     title,
                     location,
