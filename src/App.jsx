@@ -835,7 +835,7 @@ function CreateMissionForm({ user }) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${pb.authStore.token}`
+                    'Authorization': pb.authStore.token
                 },
                 body: JSON.stringify({
                     title,

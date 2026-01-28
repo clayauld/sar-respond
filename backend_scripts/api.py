@@ -17,8 +17,7 @@ limiter = Limiter(
     get_remote_address,
     app=app,
     default_limits=["200 per day", "50 per hour"],
-    storage_uri=os.getenv("LIMITER_STORAGE_URI", "memory://"),
-    storage_options={}
+    storage_uri="memory://"
 )
 
 # Configuration
@@ -38,7 +37,7 @@ def check_auth(token):
         if resp.status_code == 200:
             return resp.json() # Returns { token: ..., record: { ... } }
         return None
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         print(f"Auth check failed: {e}", file=sys.stderr)
         return None
 
@@ -106,7 +105,7 @@ def create_map():
 
     except Exception as e:
         print(f"Error creating map: {e}", file=sys.stderr)
-        return jsonify({"error": "An internal error occurred while creating the map."}), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 @limiter.exempt

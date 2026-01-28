@@ -40,14 +40,22 @@ migrate((db) => {
   // Revert rules
   try {
       const missions = dao.findCollectionByNameOrId("missions");
-  try {
-      const missions = dao.findCollectionByNameOrId("missions");
       missions.listRule = "id != ''";
       missions.viewRule = "id != ''";
       dao.saveCollection(missions);
-  } catch(e) {
-      console.error("Failed to revert 'missions' rules:", e);
-  }
+  } catch(_) {}
+
+  try {
+      const responses = dao.findCollectionByNameOrId("responses");
+      responses.listRule = "id != ''";
+      responses.viewRule = "id != ''";
+      dao.saveCollection(responses);
+  } catch(_) {}
+
+  try {
+      const users = dao.findCollectionByNameOrId("users");
+      users.listRule = "id != ''";
+      users.viewRule = "id != ''";
 
       const field = users.schema.getFieldByName("requirePasswordReset");
       if (field) {
