@@ -90,7 +90,7 @@ def create_map():
 
     except Exception as e:
         print(f"Error creating map: {e}", file=sys.stderr)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "An internal error occurred while creating the map."}), 500
 
 @app.route('/health', methods=['GET'])
 def health():

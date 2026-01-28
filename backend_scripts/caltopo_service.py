@@ -107,11 +107,18 @@ class CalTopoService:
         import re
         from datetime import datetime
         
-        # 1. Strip existing dates from input title
+        # 1. Limit input size to prevent ReDoS
+        if len(mission_name) > 500:
+            mission_name = mission_name[:500]
+
+        # 2. Strip existing dates from input title
         # Matches: YYYY-MM-DD, DD-MM-YYYY, MM/DD/YY, MM/DD
-        # Also cleans up surrounding whitespace/hyphens
-        clean_name = re.sub(r'\s*[\-]?\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[/-]\d{1,2}([-/]\d{2,4})?)\s*', '', mission_name)
-        clean_name = clean_name.strip().rstrip('-').strip()
+        # Simplified regex to avoid ReDoS warnings
+        date_pattern = r'(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[/-]\d{1,2}(?:[-/]\d{2,4})?)'
+        clean_name = re.sub(date_pattern, '', mission_name)
+        
+        # Cleanup remaining hyphens/whitespace
+        clean_name = clean_name.replace(' - ', ' ').strip().rstrip('-').strip()
         
         # 2. Append standard date suffix
         today_str = datetime.now().strftime('%m-%d-%Y')
