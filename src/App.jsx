@@ -49,6 +49,54 @@ const formatDisplayTime = (timeStr, format) => {
     return `${h}:${minutes.padStart(2, '0')} ${suffix}`;
 };
 
+// --- Coordinate Parser ---
+const parseCoordinate = (input) => {
+    if (!input || !input.trim()) return null;
+    const clean = input.trim();
+
+    // 1. DD: "61.10478, -149.79553"
+    // Allow space or comma separator
+    const ddMatch = clean.match(/^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/);
+    if (ddMatch) {
+        return [parseFloat(ddMatch[1]), parseFloat(ddMatch[3])];
+    }
+
+    // 2. DDM: "61°06.287', -149°47.732'" or "61 06.287 -149 47.732"
+    const parseDDMComponent = (str) => {
+        // Matches: 61°06.287' or 61 06.287 or -149...
+        // Support standard and smart quotes
+        const match = str.match(/(-?\d+)[°\s]+(\d+(\.\d+)?)['’]?\s*([NSEW])?/i);
+        if (!match) return null;
+        let deg = parseFloat(match[1]);
+        let min = parseFloat(match[2]);
+        let dir = match[4];
+
+        let val = Math.abs(deg) + (min / 60);
+        if (deg < 0 || (dir && (dir.toUpperCase() === 'S' || dir.toUpperCase() === 'W'))) {
+            val = -val;
+        }
+        return val;
+    };
+
+    // Try to split by comma first, as it's a more reliable separator
+    let parts = clean.split(',');
+    if (parts.length === 2) {
+        const lat = parseDDMComponent(parts[0]);
+        const lon = parseDDMComponent(parts[1]);
+        if (lat !== null && lon !== null) return [lat, lon];
+    }
+
+    // If comma split fails, try splitting by space and check for 4 parts (DDM DDM)
+    parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length === 4) {
+        const lat = parseDDMComponent(`${parts[0]} ${parts[1]}`);
+        const lon = parseDDMComponent(`${parts[2]} ${parts[3]}`);
+        if (lat !== null && lon !== null) return [lat, lon];
+    }
+
+    return null;
+};
+
 // --- Main Component ---
 export default function RescueRespond() {
   const [user, setUser] = useState(pb.authStore.model);
@@ -73,8 +121,7 @@ export default function RescueRespond() {
     if (user && user.requirePasswordReset && !showChangePw) {
         setShowChangePw(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, showChangePw]);
 
   const handleLogout = () => {
     pb.authStore.clear();
@@ -802,54 +849,6 @@ function MissionControl({ user, timeFormat }) {
     </div>
   );
 }
-
-// --- Coordinate Parser ---
-const parseCoordinate = (input) => {
-    if (!input || !input.trim()) return null;
-    const clean = input.trim();
-
-    // 1. DD: "61.10478, -149.79553"
-    // Allow space or comma separator
-    const ddMatch = clean.match(/^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/);
-    if (ddMatch) {
-        return [parseFloat(ddMatch[1]), parseFloat(ddMatch[3])];
-    }
-
-    // 2. DDM: "61°06.287', -149°47.732'" or "61 06.287 -149 47.732"
-    const parseDDMComponent = (str) => {
-        // Matches: 61°06.287' or 61 06.287 or -149...
-        // Support standard and smart quotes
-        const match = str.match(/(-?\d+)[°\s]+(\d+(\.\d+)?)['’]?\s*([NSEW])?/i);
-        if (!match) return null;
-        let deg = parseFloat(match[1]);
-        let min = parseFloat(match[2]);
-        let dir = match[4];
-
-        let val = Math.abs(deg) + (min / 60);
-        if (deg < 0 || (dir && (dir.toUpperCase() === 'S' || dir.toUpperCase() === 'W'))) {
-            val = -val;
-        }
-        return val;
-    };
-
-    // Try to split by comma first, as it's a more reliable separator
-    let parts = clean.split(',');
-    if (parts.length === 2) {
-        const lat = parseDDMComponent(parts[0]);
-        const lon = parseDDMComponent(parts[1]);
-        if (lat !== null && lon !== null) return [lat, lon];
-    }
-
-    // If comma split fails, try splitting by space and check for 4 parts (DDM DDM)
-    parts = clean.split(/\s+/).filter(Boolean);
-    if (parts.length === 4) {
-        const lat = parseDDMComponent(`${parts[0]} ${parts[1]}`);
-        const lon = parseDDMComponent(`${parts[2]} ${parts[3]}`);
-        if (lat !== null && lon !== null) return [lat, lon];
-    }
-
-    return null;
-};
 
 function CreateMissionForm({ user }) {
   const [title, setTitle] = useState('');
