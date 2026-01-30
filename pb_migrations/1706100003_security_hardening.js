@@ -11,11 +11,13 @@ migrate((db) => {
   dao.saveCollection(missions);
 
   // 2. Update 'responses' collection
+  // 2. Update 'responses' collection
   const responses = dao.findCollectionByNameOrId("responses");
   responses.listRule = "@request.auth.id != ''";
   responses.viewRule = "@request.auth.id != ''";
+  responses.createRule = "@request.auth.id != '' && user = @request.auth.id";
+  responses.updateRule = "@request.auth.id != '' && user = @request.auth.id";
   dao.saveCollection(responses);
-
   // 3. Update 'users' collection
   const users = dao.findCollectionByNameOrId("users");
   users.listRule = "@request.auth.id != ''";
