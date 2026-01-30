@@ -30,7 +30,7 @@ def check_auth(token):
     Expects token to be 'Bearer <token>'.
     """
     try:
-        headers = {"Authorization": token}
+    except requests.exceptions.RequestException as e:
         # Use a lightweight endpoint to check auth. 'auth-refresh' works.
         # This endpoint returns 200 if token is valid, 401/404 if not.
         resp = requests.post(f"{PB_INTERNAL_URL}/api/collections/users/auth-refresh", headers=headers, timeout=5)
