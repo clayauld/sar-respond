@@ -24,7 +24,7 @@ migrate((db) => {
   users.viewRule = "@request.auth.id != ''";
 
   // Harden update rule: Users can only clear 'requirePasswordReset' if they are also setting a password
-  users.updateRule = "(@request.auth.role = 'Admin') || (id = @request.auth.id && (@request.data.requirePasswordReset:isset = false || @request.data.requirePasswordReset = true || (@request.data.requirePasswordReset = false && @request.data.password:isset = true)))";
+   users.updateRule = "(@request.auth.role = 'Admin') || (id = @request.auth.id && @request.data.role:isset = false && @request.data.memberId:isset = false && (@request.data.requirePasswordReset != false || @request.data.password:isset = true))";
 
   // 4. Add 'requirePasswordReset' field
   if (!users.schema.getFieldByName("requirePasswordReset")) {
