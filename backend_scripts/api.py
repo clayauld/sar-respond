@@ -38,7 +38,7 @@ def check_auth(token):
             return resp.json() # Returns { token: ..., record: { ... } }
         return None
     except Exception as e:
-        print(f"Auth check failed: {e}", file=sys.stderr)
+        print(f"Auth check failed: {type(e).__name__}", file=sys.stderr)
         return None
 
 def require_admin(f):
