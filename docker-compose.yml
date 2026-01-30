@@ -35,3 +35,12 @@ services:
     # Code is baked into the image
     env_file:
       - .env
+    environment:
+      - RATELIMIT_STORAGE_URI=redis://redis:6379
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: sar-redis
+    restart: unless-stopped

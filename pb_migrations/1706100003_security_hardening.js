@@ -1,5 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
-/* eslint-disable no-undef, no-unused-vars, no-empty */
+/* eslint-disable no-undef, no-unused-vars */
 
 migrate((db) => {
   const dao = new Dao(db);
@@ -20,6 +20,9 @@ migrate((db) => {
   const users = dao.findCollectionByNameOrId("users");
   users.listRule = "@request.auth.id != ''";
   users.viewRule = "@request.auth.id != ''";
+
+  // Harden update rule: Users can only clear 'requirePasswordReset' if they are also setting a password
+  users.updateRule = "(@request.auth.role = 'Admin') || (id = @request.auth.id && (@request.data.requirePasswordReset:isset = false || @request.data.requirePasswordReset = true || (@request.data.requirePasswordReset = false && @request.data.password:isset = true)))";
 
   // 4. Add 'requirePasswordReset' field
   if (!users.schema.getFieldByName("requirePasswordReset")) {
@@ -43,24 +46,32 @@ migrate((db) => {
       missions.listRule = "id != ''";
       missions.viewRule = "id != ''";
       dao.saveCollection(missions);
-  } catch(_) {}
+  } catch(e) {
+      console.error("Failed to revert missions collection:", e);
+  }
 
   try {
       const responses = dao.findCollectionByNameOrId("responses");
       responses.listRule = "id != ''";
       responses.viewRule = "id != ''";
       dao.saveCollection(responses);
-  } catch(_) {}
+  } catch(e) {
+      console.error("Failed to revert responses collection:", e);
+  }
 
   try {
       const users = dao.findCollectionByNameOrId("users");
       users.listRule = "id != ''";
       users.viewRule = "id != ''";
+      // Revert to previous permissive update rule (from 1706100002)
+      users.updateRule = "id = @request.auth.id || @request.auth.role = 'Admin'";
 
       const field = users.schema.getFieldByName("requirePasswordReset");
       if (field) {
         users.schema.removeField("requirePasswordReset");
       }
       dao.saveCollection(users);
-  } catch(_) {}
+  } catch(e) {
+      console.error("Failed to revert users collection:", e);
+  }
 });

@@ -17,7 +17,7 @@ limiter = Limiter(
     get_remote_address,
     app=app,
     default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://"
+    storage_uri=os.getenv("RATELIMIT_STORAGE_URI", "memory://")
 )
 
 # Configuration
@@ -48,14 +48,8 @@ def require_admin(f):
         if not auth_header:
             return jsonify({"error": "Missing Authorization Header"}), 401
 
-        # Extract token if strictly 'Bearer <token>' or just '<token>'
-        # The frontend sends 'Bearer <token>'
-        token = auth_header
-        if auth_header.startswith("Bearer "):
-            token = auth_header.split(" ", 1)[1]
-        
         user_data = check_auth(auth_header)
-        
+
         if not user_data:
             return jsonify({"error": "Invalid Token or Authentication Failed"}), 401
 
@@ -67,7 +61,7 @@ def require_admin(f):
         # Store user info in request context if needed, or just proceed
         # For now, we print in the route, so we might want to attach it to request
         request.user_data = user_data
-        
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -77,7 +71,7 @@ def require_admin(f):
 def create_map():
     # User is already authenticated via @require_auth
     user_data = getattr(request, 'user_data', {})
-    
+
     data = request.json
     if not data:
         return jsonify({"error": "No JSON payload provided"}), 400

@@ -49,11 +49,59 @@ const formatDisplayTime = (timeStr, format) => {
     return `${h}:${minutes.padStart(2, '0')} ${suffix}`;
 };
 
+// --- Coordinate Parser ---
+const parseCoordinate = (input) => {
+    if (!input || !input.trim()) return null;
+    const clean = input.trim();
+
+    // 1. DD: "61.10478, -149.79553"
+    // Allow space or comma separator
+    const ddMatch = clean.match(/^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/);
+    if (ddMatch) {
+        return [parseFloat(ddMatch[1]), parseFloat(ddMatch[3])];
+    }
+
+    // 2. DDM: "61°06.287', -149°47.732'" or "61 06.287 -149 47.732"
+    const parseDDMComponent = (str) => {
+        // Matches: 61°06.287' or 61 06.287 or -149...
+        // Support standard and smart quotes
+        const match = str.match(/(-?\d+)[°\s]+(\d+(\.\d+)?)['’]?\s*([NSEW])?/i);
+        if (!match) return null;
+        let deg = parseFloat(match[1]);
+        let min = parseFloat(match[2]);
+        let dir = match[4];
+
+        let val = Math.abs(deg) + (min / 60);
+        if (deg < 0 || (dir && (dir.toUpperCase() === 'S' || dir.toUpperCase() === 'W'))) {
+            val = -val;
+        }
+        return val;
+    };
+
+    // Try to split by comma first, as it's a more reliable separator
+    let parts = clean.split(',');
+    if (parts.length === 2) {
+        const lat = parseDDMComponent(parts[0]);
+        const lon = parseDDMComponent(parts[1]);
+        if (lat !== null && lon !== null) return [lat, lon];
+    }
+
+    // If comma split fails, try splitting by space and check for 4 parts (DDM DDM)
+    parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length === 4) {
+        const lat = parseDDMComponent(`${parts[0]} ${parts[1]}`);
+        const lon = parseDDMComponent(`${parts[2]} ${parts[3]}`);
+        if (lat !== null && lon !== null) return [lat, lon];
+    }
+
+    return null;
+};
+
 // --- Main Component ---
 export default function RescueRespond() {
   const [user, setUser] = useState(pb.authStore.model);
 
-  const [showChangePw, setShowChangePw] = useState(false);
+  const [showChangePw, setShowChangePw] = useState(pb.authStore.model?.requirePasswordReset || false);
   const [showChangeUsername, setShowChangeUsername] = useState(false);
   const [timeFormat, setTimeFormat] = useState(localStorage.getItem('timeFormat') || '24h');
 
@@ -66,15 +114,13 @@ export default function RescueRespond() {
     // Listen to auth changes
     return pb.authStore.onChange((token, model) => {
       setUser(model);
+      if (model?.requirePasswordReset) {
+         setShowChangePw(true);
+      }
     });
   }, []);
 
-  useEffect(() => {
-    if (user && user.requirePasswordReset && !showChangePw) {
-        setShowChangePw(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+
 
   const handleLogout = () => {
     pb.authStore.clear();
@@ -783,56 +829,15 @@ function MissionControl({ user, timeFormat }) {
   );
 }
 
-// --- Coordinate Parser ---
-const parseCoordinate = (input) => {
-    if (!input || !input.trim()) return null;
-    const clean = input.trim();
-
-    // 1. DD: "61.10478, -149.79553"
-    // Allow space or comma separator
-    const ddMatch = clean.match(/^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/);
-    if (ddMatch) {
-        return [parseFloat(ddMatch[1]), parseFloat(ddMatch[3])];
-    }
-
-    // 2. DDM: "61°06.287', -149°47.732'" or "61 06.287 -149 47.732"
-    const parseDDMComponent = (str) => {
-        // Matches: 61°06.287' or 61 06.287 or -149...
-        // Support standard and smart quotes
-        const match = str.match(/(-?\d+)[°\s]+(\d+(\.\d+)?)['’]?\s*([NSEW])?/i);
-        if (!match) return null;
-        let deg = parseFloat(match[1]);
-        let min = parseFloat(match[2]);
-        let dir = match[4];
-        
-        let val = Math.abs(deg) + (min / 60);
-        if (deg < 0 || (dir && (dir.toUpperCase() === 'S' || dir.toUpperCase() === 'W'))) {
-            val = -val;
-        }
-        return val;
-    };
-
-    // Split by comma or space, but only if it's not within a quoted string (not strictly necessary now, but good for robustness)
-    const parts = clean.split(/,\s*|\s+/).filter(Boolean);
-
-    if (parts.length === 2) {
-        const lat = parseDDMComponent(parts[0]);
-        const lon = parseDDMComponent(parts[1]);
-        if (lat !== null && lon !== null) return [lat, lon];
-    }
-    
-    return null;
-};
-
 function CreateMissionForm() {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [mapUrl, setMapUrl] = useState('');
-  
+
   // Unified inputs
   const [lkpInput, setLkpInput] = useState('');
   const [icpInput, setIcpInput] = useState('');
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
@@ -848,10 +853,10 @@ function CreateMissionForm() {
     // Auto-create map if URL is empty
     if (!finalMapUrl) {
         setStatusMsg("Parsing coordinates...");
-        
+
         const lkp = parseCoordinate(lkpInput);
         const icp = parseCoordinate(icpInput);
-        
+
         if (lkpInput && !lkp) {
             alert("Could not parse LKP Coordinate. Please use basic DDM (Degrees Decimal Minutes) or DD format.");
             setIsSubmitting(false);
@@ -868,7 +873,7 @@ function CreateMissionForm() {
             // Use relative path to leverage Vite proxy (dev) or Nginx (prod)
             const res = await fetch('/api/caltopo/create-map', {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${pb.authStore.token}`
                 },
@@ -908,7 +913,7 @@ function CreateMissionForm() {
         mapUrl: finalMapUrl,
         status: 'active'
       });
-      setTitle(''); setLocation(''); setMapUrl(''); 
+      setTitle(''); setLocation(''); setMapUrl('');
       setLkpInput(''); setIcpInput('');
       setStatusMsg('');
     } catch (err) {
@@ -946,8 +951,8 @@ function CreateMissionForm() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">ICP Coordinate (Optional)</label>
-              <input 
-                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all font-mono text-sm" 
+              <input
+                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all font-mono text-sm"
                 placeholder="DDM or DD (e.g. 61°06.28' ...)"
                 value={icpInput} onChange={e => setIcpInput(e.target.value)}
               />
@@ -957,8 +962,8 @@ function CreateMissionForm() {
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">LKP Coordinate (Optional)</label>
-              <input 
-                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all font-mono text-sm" 
+              <input
+                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all font-mono text-sm"
                 placeholder="DDM or DD (e.g. 61°06.28' -149°47.73')"
                 value={lkpInput} onChange={e => setLkpInput(e.target.value)}
               />
