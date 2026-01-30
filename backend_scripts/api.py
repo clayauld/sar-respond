@@ -30,15 +30,16 @@ def check_auth(token):
     Expects token to be 'Bearer <token>'.
     """
     try:
-    except requests.exceptions.RequestException as e:
+        headers = { "Authorization": token }
         # Use a lightweight endpoint to check auth. 'auth-refresh' works.
         # This endpoint returns 200 if token is valid, 401/404 if not.
         resp = requests.post(f"{PB_INTERNAL_URL}/api/collections/users/auth-refresh", headers=headers, timeout=5)
+        
         if resp.status_code == 200:
             return resp.json() # Returns { token: ..., record: { ... } }
         return None
     except Exception as e:
-        print(f"Auth check failed: {type(e).__name__}", file=sys.stderr)
+        print(f"Auth check failed (backend-auth-check): {e}", file=sys.stderr)
         return None
 
 def require_admin(f):
