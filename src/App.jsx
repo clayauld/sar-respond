@@ -42,7 +42,7 @@ const formatDisplayTime = (timeStr, format) => {
     // Convert 24h "HH:MM" to 12h "h:MM PM"
     const [hours, minutes] = timeStr.split(':');
     let h = parseInt(hours, 10);
-    const m = parseInt(minutes, 10);
+
     const suffix = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
@@ -100,8 +100,9 @@ const parseCoordinate = (input) => {
 // --- Main Component ---
 export default function RescueRespond() {
   const [user, setUser] = useState(pb.authStore.model);
+  // eslint-disable-next-line no-unused-vars
   const [loading, setLoading] = useState(false);
-  const [showChangePw, setShowChangePw] = useState(false);
+  const [showChangePw, setShowChangePw] = useState(pb.authStore.model?.requirePasswordReset || false);
   const [showChangeUsername, setShowChangeUsername] = useState(false);
   const [timeFormat, setTimeFormat] = useState(localStorage.getItem('timeFormat') || '24h');
 
@@ -114,14 +115,11 @@ export default function RescueRespond() {
     // Listen to auth changes
     return pb.authStore.onChange((token, model) => {
       setUser(model);
+      if (model?.requirePasswordReset) {
+         setShowChangePw(true);
+      }
     });
   }, []);
-
-  useEffect(() => {
-    if (user && user.requirePasswordReset && !showChangePw) {
-        setShowChangePw(true);
-    }
-  }, [user, showChangePw]);
 
   const handleLogout = () => {
     pb.authStore.clear();
@@ -213,17 +211,14 @@ export default function RescueRespond() {
 // --- Screens ---
 
 function LoginScreen() {
-  const [memberId, setMemberId] = useState('');
+  const [memberId, setMemberId] = useState(() => {
+      // Auto-fill from URL for QR codes
+      const params = new URLSearchParams(window.location.search);
+      return params.get('u') || '';
+  });
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Auto-fill from URL for QR codes
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const u = params.get('u');
-    if (u) setMemberId(u);
-  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -354,24 +349,7 @@ function RosterManager() {
 
 
 
-  // Helper to parse CSV line respecting quotes
-  const parseCSVLine = (str) => {
-    const min = [];
-    let cur = '';
-    let inQuote = false;
-    for(let i=0; i<str.length; i++) {
-        if(str[i] === '"') {
-            inQuote = !inQuote;
-        } else if(str[i] === ',' && !inQuote) {
-            min.push(cur.trim());
-            cur = '';
-        } else {
-            cur += str[i];
-        }
-    }
-    min.push(cur.trim());
-    return min.map(s => s.replace(/^"|"$/g, ''));
-  };
+
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -746,7 +724,7 @@ function MissionControl({ user, timeFormat }) {
       for (let m of actives) {
         await pb.collection('missions').update(m.id, { status: 'closed' });
       }
-    } catch (err) {
+    } catch {
       alert("Error closing missions");
     }
     setClosing(false);
@@ -850,7 +828,7 @@ function MissionControl({ user, timeFormat }) {
   );
 }
 
-function CreateMissionForm({ user }) {
+function CreateMissionForm() {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [mapUrl, setMapUrl] = useState('');
@@ -859,12 +837,18 @@ function CreateMissionForm({ user }) {
   const [lkpInput, setLkpInput] = useState('');
   const [icpInput, setIcpInput] = useState('');
 
+  // Validation state
+  const [inputErrors, setInputErrors] = useState({});
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
   const handleStart = async (e) => {
     e.preventDefault();
     if (!title || !location) return;
+    
+    // Clear previous errors
+    setInputErrors({});
     
     setIsSubmitting(true);
     setStatusMsg('');
@@ -877,14 +861,18 @@ function CreateMissionForm({ user }) {
 
         const lkp = parseCoordinate(lkpInput);
         const icp = parseCoordinate(icpInput);
+        
+        let errors = {};
 
         if (lkpInput && !lkp) {
-            alert("Could not parse LKP Coordinate. Please use basic DDM (Degrees Decimal Minutes) or DD format.");
-            setIsSubmitting(false);
-            return;
+            errors.lkp = "Invalid format. Try DDM (61°06.28 -149°47.73) or DD.";
         }
         if (icpInput && !icp) {
-            alert("Could not parse ICP Coordinate. Please use basic DDM (Degrees Decimal Minutes) or DD format.");
+            errors.icp = "Invalid format. Try DDM (61°06.28 -149°47.73) or DD.";
+        }
+        
+        if (Object.keys(errors).length > 0) {
+            setInputErrors(errors);
             setIsSubmitting(false);
             return;
         }
@@ -973,24 +961,40 @@ function CreateMissionForm({ user }) {
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">ICP Coordinate (Optional)</label>
               <input
-                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all font-mono text-sm"
+                className={`w-full p-3 border rounded-xl outline-none transition-all font-mono text-sm ${inputErrors.icp ? 'border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500' : 'border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500'}`}
                 placeholder="DDM or DD (e.g. 61°06.28' ...)"
-                value={icpInput} onChange={e => setIcpInput(e.target.value)}
+                value={icpInput} onChange={e => {
+                    setIcpInput(e.target.value);
+                    if (inputErrors.icp) setInputErrors({...inputErrors, icp: null});
+                }}
               />
-              <p className="text-xs text-slate-400 mt-1">
-                  Point will be added to the map if provided
-              </p>
+              {inputErrors.icp && (
+                  <p className="text-xs text-red-600 mt-1 font-semibold">{inputErrors.icp}</p>
+              )}
+              {!inputErrors.icp && (
+                  <p className="text-xs text-slate-400 mt-1">
+                      Point will be added to the map if provided
+                  </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">LKP Coordinate (Optional)</label>
               <input
-                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all font-mono text-sm"
+                className={`w-full p-3 border rounded-xl outline-none transition-all font-mono text-sm ${inputErrors.lkp ? 'border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500' : 'border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500'}`}
                 placeholder="DDM or DD (e.g. 61°06.28' -149°47.73')"
-                value={lkpInput} onChange={e => setLkpInput(e.target.value)}
+                value={lkpInput} onChange={e => {
+                    setLkpInput(e.target.value);
+                    if (inputErrors.lkp) setInputErrors({...inputErrors, lkp: null});
+                }}
               />
-              <p className="text-xs text-slate-400 mt-1">
-                  Preferred: DDM (61°06.28 -149°47.73)
-              </p>
+              {inputErrors.lkp && (
+                  <p className="text-xs text-red-600 mt-1 font-semibold">{inputErrors.lkp}</p>
+              )}
+              {!inputErrors.lkp && (
+                  <p className="text-xs text-slate-400 mt-1">
+                      Preferred: DDM (61°06.28 -149°47.73)
+                  </p>
+              )}
             </div>
         </div>
 
@@ -1049,7 +1053,7 @@ function ResponderActions({ activeMission, user }) {
             } else {
                 setMyResponse(null);
             }
-        } catch (e) {
+        } catch {
             console.log("No previous response found");
         }
     };

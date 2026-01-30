@@ -70,7 +70,7 @@ def require_admin(f):
 @limiter.limit("5 per minute")
 @require_admin
 def create_map():
-    # User is already authenticated via @require_auth
+    # User is already authenticated via @require_admin
     user_data = getattr(request, 'user_data', {})
 
     data = request.json
