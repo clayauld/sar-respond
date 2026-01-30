@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-function ChangePasswordModal({ user, onClose, pb }) {
+function ChangePasswordModal({ user, onClose, pb, force = false }) {
   const [data, setData] = useState({ oldPassword: '', password: '', passwordConfirm: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -19,11 +19,17 @@ function ChangePasswordModal({ user, onClose, pb }) {
     }
 
     try {
-        await pb.collection('users').update(user.id, {
+        const payload = {
             oldPassword: data.oldPassword,
             password: data.password,
             passwordConfirm: data.passwordConfirm
-        });
+        };
+
+        if (force) {
+            payload.requirePasswordReset = false;
+        }
+
+        await pb.collection('users').update(user.id, payload);
         setSuccess("Password updated successfully!");
         setTimeout(onClose, 1500);
     } catch (err) {
@@ -34,9 +40,9 @@ function ChangePasswordModal({ user, onClose, pb }) {
   };
 
   return (
-      <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4" onClick={!force ? onClose : undefined}>
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Change Password</h3>
+              <h3 className="text-xl font-bold text-slate-900 mb-4">{force ? 'Password Change Required' : 'Change Password'}</h3>
               
               {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm font-medium">{error}</div>}
               {success && <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm font-medium">{success}</div>}
@@ -84,13 +90,15 @@ function ChangePasswordModal({ user, onClose, pb }) {
                   >
                       {loading ? 'Updating...' : 'Update Password'}
                   </button>
-                  <button 
-                    type="button"
-                    onClick={onClose}
-                    className="w-full text-slate-500 font-bold py-2 text-sm hover:text-slate-800"
-                  >
-                      Cancel
-                  </button>
+                  {!force && (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="w-full text-slate-500 font-bold py-2 text-sm hover:text-slate-800"
+                    >
+                        Cancel
+                    </button>
+                  )}
               </form>
           </div>
       </div>

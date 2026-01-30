@@ -116,7 +116,7 @@ class CalTopoService:
         # Simplified regex to avoid ReDoS warnings
         date_pattern = r'(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[/-]\d{1,2}(?:[-/]\d{2,4})?)'
         clean_name = re.sub(date_pattern, '', mission_name)
-        
+
         # Cleanup remaining hyphens/whitespace
         clean_name = clean_name.replace(' - ', ' ').strip().rstrip('-').strip()
         

@@ -1,5 +1,6 @@
 requests
 python-dotenv
 flask
-flask-cors
 gunicorn
+Flask-Limiter
+redis

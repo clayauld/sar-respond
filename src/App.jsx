@@ -42,18 +42,67 @@ const formatDisplayTime = (timeStr, format) => {
     // Convert 24h "HH:MM" to 12h "h:MM PM"
     const [hours, minutes] = timeStr.split(':');
     let h = parseInt(hours, 10);
-    const m = parseInt(minutes, 10);
+
     const suffix = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
     return `${h}:${minutes.padStart(2, '0')} ${suffix}`;
 };
 
+// --- Coordinate Parser ---
+const parseCoordinate = (input) => {
+    if (!input || !input.trim()) return null;
+    const clean = input.trim();
+
+    // 1. DD: "61.10478, -149.79553"
+    // Allow space or comma separator
+    const ddMatch = clean.match(/^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/);
+    if (ddMatch) {
+        return [parseFloat(ddMatch[1]), parseFloat(ddMatch[3])];
+    }
+
+    // 2. DDM: "61°06.287', -149°47.732'" or "61 06.287 -149 47.732"
+    const parseDDMComponent = (str) => {
+        // Matches: 61°06.287' or 61 06.287 or -149...
+        // Support standard and smart quotes
+        const match = str.match(/(-?\d+)[°\s]+(\d+(\.\d+)?)['’]?\s*([NSEW])?/i);
+        if (!match) return null;
+        let deg = parseFloat(match[1]);
+        let min = parseFloat(match[2]);
+        let dir = match[4];
+
+        let val = Math.abs(deg) + (min / 60);
+        if (deg < 0 || (dir && (dir.toUpperCase() === 'S' || dir.toUpperCase() === 'W'))) {
+            val = -val;
+        }
+        return val;
+    };
+
+    // Try to split by comma first, as it's a more reliable separator
+    let parts = clean.split(',');
+    if (parts.length === 2) {
+        const lat = parseDDMComponent(parts[0]);
+        const lon = parseDDMComponent(parts[1]);
+        if (lat !== null && lon !== null) return [lat, lon];
+    }
+
+    // If comma split fails, try splitting by space and check for 4 parts (DDM DDM)
+    parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length === 4) {
+        const lat = parseDDMComponent(`${parts[0]} ${parts[1]}`);
+        const lon = parseDDMComponent(`${parts[2]} ${parts[3]}`);
+        if (lat !== null && lon !== null) return [lat, lon];
+    }
+
+    return null;
+};
+
 // --- Main Component ---
 export default function RescueRespond() {
   const [user, setUser] = useState(pb.authStore.model);
+  // eslint-disable-next-line no-unused-vars
   const [loading, setLoading] = useState(false);
-  const [showChangePw, setShowChangePw] = useState(false);
+  const [showChangePw, setShowChangePw] = useState(pb.authStore.model?.requirePasswordReset || false);
   const [showChangeUsername, setShowChangeUsername] = useState(false);
   const [timeFormat, setTimeFormat] = useState(localStorage.getItem('timeFormat') || '24h');
 
@@ -66,6 +115,9 @@ export default function RescueRespond() {
     // Listen to auth changes
     return pb.authStore.onChange((token, model) => {
       setUser(model);
+      if (model?.requirePasswordReset) {
+         setShowChangePw(true);
+      }
     });
   }, []);
 
@@ -82,8 +134,8 @@ export default function RescueRespond() {
       <header className="bg-slate-900 text-white p-2 shadow-lg sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="bg-red-600 p-2 rounded-lg">
-              <ShieldAlert className="w-6 h-6 text-white" />
+            <div className="bg-red-600 p-1.5 rounded-lg">
+              <img src="/sar-icon.png" alt="Logo" className="w-8 h-8 object-contain" />
             </div>
             <div>
               <h1 className="font-bold text-lg leading-tight hidden sm:block">{window._env_?.ORG_NAME || import.meta.env.ORG_NAME || 'SAR Group'}</h1>
@@ -140,6 +192,7 @@ export default function RescueRespond() {
             user={user} 
             pb={pb} 
             onClose={() => setShowChangePw(false)} 
+            force={user && user.requirePasswordReset}
           />
       )}
 
@@ -158,17 +211,14 @@ export default function RescueRespond() {
 // --- Screens ---
 
 function LoginScreen() {
-  const [memberId, setMemberId] = useState('');
+  const [memberId, setMemberId] = useState(() => {
+      // Auto-fill from URL for QR codes
+      const params = new URLSearchParams(window.location.search);
+      return params.get('u') || '';
+  });
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Auto-fill from URL for QR codes
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const u = params.get('u');
-    if (u) setMemberId(u);
-  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -189,8 +239,8 @@ function LoginScreen() {
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
       <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden z-10">
-        <div className="bg-red-600 p-6 text-center">
-          <ShieldAlert className="w-16 h-16 text-white mx-auto mb-2" />
+        <div className="bg-red-600 p-6 text-center flex flex-col items-center">
+          <img src="/sar-icon.png" alt="Logo" className="w-24 h-24 object-contain mb-4 drop-shadow-md" />
           <h1 className="text-2xl font-bold text-white">{window._env_?.ORG_ABBR || import.meta.env.ORG_ABBR || 'SAR'} Login</h1>
         </div>
         
@@ -299,24 +349,7 @@ function RosterManager() {
 
 
 
-  // Helper to parse CSV line respecting quotes
-  const parseCSVLine = (str) => {
-    const min = [];
-    let cur = '';
-    let inQuote = false;
-    for(let i=0; i<str.length; i++) {
-        if(str[i] === '"') {
-            inQuote = !inQuote;
-        } else if(str[i] === ',' && !inQuote) {
-            min.push(cur.trim());
-            cur = '';
-        } else {
-            cur += str[i];
-        }
-    }
-    min.push(cur.trim());
-    return min.map(s => s.replace(/^"|"$/g, ''));
-  };
+
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -691,7 +724,7 @@ function MissionControl({ user, timeFormat }) {
       for (let m of actives) {
         await pb.collection('missions').update(m.id, { status: 'closed' });
       }
-    } catch (err) {
+    } catch {
       alert("Error closing missions");
     }
     setClosing(false);
@@ -795,20 +828,27 @@ function MissionControl({ user, timeFormat }) {
   );
 }
 
-function CreateMissionForm({ user }) {
+function CreateMissionForm() {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [mapUrl, setMapUrl] = useState('');
-  const [lat, setLat] = useState('');
-  const [lon, setLon] = useState('');
-  const [icpLat, setIcpLat] = useState('');
-  const [icpLon, setIcpLon] = useState('');
+
+  // Unified inputs
+  const [lkpInput, setLkpInput] = useState('');
+  const [icpInput, setIcpInput] = useState('');
+
+  // Validation state
+  const [inputErrors, setInputErrors] = useState({});
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
   const handleStart = async (e) => {
     e.preventDefault();
     if (!title || !location) return;
+    
+    // Clear previous errors
+    setInputErrors({});
     
     setIsSubmitting(true);
     setStatusMsg('');
@@ -817,25 +857,44 @@ function CreateMissionForm({ user }) {
 
     // Auto-create map if URL is empty
     if (!finalMapUrl) {
+        setStatusMsg("Parsing coordinates...");
+
+        const lkp = parseCoordinate(lkpInput);
+        const icp = parseCoordinate(icpInput);
+        
+        let errors = {};
+
+        if (lkpInput && !lkp) {
+            errors.lkp = "Invalid format. Try DDM (61°06.28 -149°47.73) or DD.";
+        }
+        if (icpInput && !icp) {
+            errors.icp = "Invalid format. Try DDM (61°06.28 -149°47.73) or DD.";
+        }
+        
+        if (Object.keys(errors).length > 0) {
+            setInputErrors(errors);
+            setIsSubmitting(false);
+            return;
+        }
+
         setStatusMsg("Creating CalTopo Map...");
         try {
-            const lkp = (lat && lon) ? [parseFloat(lat), parseFloat(lon)] : null;
-            const icp = (icpLat && icpLon) ? [parseFloat(icpLat), parseFloat(icpLon)] : null;
-            
             // Use relative path to leverage Vite proxy (dev) or Nginx (prod)
             const res = await fetch('/api/caltopo/create-map', {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${pb.authStore.token}`
                 },
                 body: JSON.stringify({
                     title,
                     location,
-                    lkp,
-                    icp
+                    lkp, // [lat, lon]
+                    icp  // [lat, lon]
                 })
             });
+
+
             
             if (!res.ok) {
                 const errData = await res.json();
@@ -863,11 +922,12 @@ function CreateMissionForm({ user }) {
         mapUrl: finalMapUrl,
         status: 'active'
       });
-      setTitle(''); setLocation(''); setMapUrl(''); setLat(''); setLon('');
+      setTitle(''); setLocation(''); setMapUrl('');
+      setLkpInput(''); setIcpInput('');
       setStatusMsg('');
     } catch (err) {
       console.error(err);
-      alert("Error creating mission");
+      alert(`Error creating mission: ${err.message || JSON.stringify(err)}`);
     }
     setIsSubmitting(false);
   };
@@ -897,40 +957,45 @@ function CreateMissionForm({ user }) {
           />
         </div>
 
-        <div className="border-t border-b border-slate-100 py-4">
-             <label className="block text-sm font-bold text-slate-700 mb-2">Incident Command Post (ICP)</label>
-             <div className="grid grid-cols-2 gap-4">
-                 <input 
-                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
-                    placeholder="ICP Latitude"
-                    type="number" step="any"
-                    value={icpLat} onChange={e => setIcpLat(e.target.value)}
-                  />
-                  <input 
-                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
-                    placeholder="ICP Longitude"
-                    type="number" step="any"
-                    value={icpLon} onChange={e => setIcpLon(e.target.value)}
-                  />
-             </div>
-        </div>
-
-        <div className="border-b border-slate-100 pb-4">
-             <label className="block text-sm font-bold text-slate-700 mb-2">Last Known Point (LKP)</label>
-             <div className="grid grid-cols-2 gap-4">
-                 <input 
-                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
-                    placeholder="LKP Latitude"
-                    type="number" step="any"
-                    value={lat} onChange={e => setLat(e.target.value)}
-                  />
-                  <input 
-                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
-                    placeholder="LKP Longitude"
-                    type="number" step="any"
-                    value={lon} onChange={e => setLon(e.target.value)}
-                  />
-             </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">ICP Coordinate (Optional)</label>
+              <input
+                className={`w-full p-3 border rounded-xl outline-none transition-all font-mono text-sm ${inputErrors.icp ? 'border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500' : 'border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500'}`}
+                placeholder="DDM or DD (e.g. 61°06.28' ...)"
+                value={icpInput} onChange={e => {
+                    setIcpInput(e.target.value);
+                    if (inputErrors.icp) setInputErrors({...inputErrors, icp: null});
+                }}
+              />
+              {inputErrors.icp && (
+                  <p className="text-xs text-red-600 mt-1 font-semibold">{inputErrors.icp}</p>
+              )}
+              {!inputErrors.icp && (
+                  <p className="text-xs text-slate-400 mt-1">
+                      Point will be added to the map if provided
+                  </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">LKP Coordinate (Optional)</label>
+              <input
+                className={`w-full p-3 border rounded-xl outline-none transition-all font-mono text-sm ${inputErrors.lkp ? 'border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500' : 'border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500'}`}
+                placeholder="DDM or DD (e.g. 61°06.28' -149°47.73')"
+                value={lkpInput} onChange={e => {
+                    setLkpInput(e.target.value);
+                    if (inputErrors.lkp) setInputErrors({...inputErrors, lkp: null});
+                }}
+              />
+              {inputErrors.lkp && (
+                  <p className="text-xs text-red-600 mt-1 font-semibold">{inputErrors.lkp}</p>
+              )}
+              {!inputErrors.lkp && (
+                  <p className="text-xs text-slate-400 mt-1">
+                      Preferred: DDM (61°06.28 -149°47.73)
+                  </p>
+              )}
+            </div>
         </div>
 
         <div>
@@ -988,7 +1053,7 @@ function ResponderActions({ activeMission, user }) {
             } else {
                 setMyResponse(null);
             }
-        } catch (e) {
+        } catch {
             console.log("No previous response found");
         }
     };
