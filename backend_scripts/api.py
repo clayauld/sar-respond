@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify
 from caltopo_service import CalTopoService
 import os
 import sys
