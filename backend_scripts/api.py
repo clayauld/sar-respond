@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, abort
 from caltopo_service import CalTopoService
 import os
 import sys
@@ -70,7 +70,7 @@ def require_admin(f):
 @limiter.limit("5 per minute")
 @require_admin
 def create_map():
-    # User is already authenticated via @require_admin
+    # User is already authenticated via @require_auth
     user_data = getattr(request, 'user_data', {})
 
     data = request.json
