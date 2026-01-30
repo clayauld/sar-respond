@@ -134,8 +134,8 @@ export default function RescueRespond() {
       <header className="bg-slate-900 text-white p-2 shadow-lg sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="bg-red-600 p-2 rounded-lg">
-              <ShieldAlert className="w-6 h-6 text-white" />
+            <div className="bg-red-600 p-1.5 rounded-lg">
+              <img src="/sar-icon.png" alt="Logo" className="w-8 h-8 object-contain" />
             </div>
             <div>
               <h1 className="font-bold text-lg leading-tight hidden sm:block">{window._env_?.ORG_NAME || import.meta.env.ORG_NAME || 'SAR Group'}</h1>
@@ -239,8 +239,8 @@ function LoginScreen() {
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
       <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden z-10">
-        <div className="bg-red-600 p-6 text-center">
-          <ShieldAlert className="w-16 h-16 text-white mx-auto mb-2" />
+        <div className="bg-red-600 p-6 text-center flex flex-col items-center">
+          <img src="/sar-icon.png" alt="Logo" className="w-24 h-24 object-contain mb-4 drop-shadow-md" />
           <h1 className="text-2xl font-bold text-white">{window._env_?.ORG_ABBR || import.meta.env.ORG_ABBR || 'SAR'} Login</h1>
         </div>
         
