@@ -42,7 +42,7 @@ const formatDisplayTime = (timeStr, format) => {
     // Convert 24h "HH:MM" to 12h "h:MM PM"
     const [hours, minutes] = timeStr.split(':');
     let h = parseInt(hours, 10);
-    const m = parseInt(minutes, 10);
+
     const suffix = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
@@ -52,7 +52,7 @@ const formatDisplayTime = (timeStr, format) => {
 // --- Main Component ---
 export default function RescueRespond() {
   const [user, setUser] = useState(pb.authStore.model);
-  const [loading, setLoading] = useState(false);
+
   const [showChangePw, setShowChangePw] = useState(false);
   const [showChangeUsername, setShowChangeUsername] = useState(false);
   const [timeFormat, setTimeFormat] = useState(localStorage.getItem('timeFormat') || '24h');
@@ -166,17 +166,14 @@ export default function RescueRespond() {
 // --- Screens ---
 
 function LoginScreen() {
-  const [memberId, setMemberId] = useState('');
+
+  const [memberId, setMemberId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('u') || '';
+  });
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Auto-fill from URL for QR codes
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const u = params.get('u');
-    if (u) setMemberId(u);
-  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -307,24 +304,7 @@ function RosterManager() {
 
 
 
-  // Helper to parse CSV line respecting quotes
-  const parseCSVLine = (str) => {
-    const min = [];
-    let cur = '';
-    let inQuote = false;
-    for(let i=0; i<str.length; i++) {
-        if(str[i] === '"') {
-            inQuote = !inQuote;
-        } else if(str[i] === ',' && !inQuote) {
-            min.push(cur.trim());
-            cur = '';
-        } else {
-            cur += str[i];
-        }
-    }
-    min.push(cur.trim());
-    return min.map(s => s.replace(/^"|"$/g, ''));
-  };
+
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -699,7 +679,7 @@ function MissionControl({ user, timeFormat }) {
       for (let m of actives) {
         await pb.collection('missions').update(m.id, { status: 'closed' });
       }
-    } catch (err) {
+    } catch {
       alert("Error closing missions");
     }
     setClosing(false);
@@ -844,7 +824,7 @@ const parseCoordinate = (input) => {
     return null;
 };
 
-function CreateMissionForm({ user }) {
+function CreateMissionForm() {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [mapUrl, setMapUrl] = useState('');
@@ -1043,7 +1023,7 @@ function ResponderActions({ activeMission, user }) {
             } else {
                 setMyResponse(null);
             }
-        } catch (e) {
+        } catch {
             console.log("No previous response found");
         }
     };
