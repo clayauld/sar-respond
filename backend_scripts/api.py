@@ -22,7 +22,7 @@ limiter = Limiter(
 
 # Configuration
 # Default to Docker internal hostname if not set
-PB_INTERNAL_URL = os.getenv("PB_INTERNAL_URL", "http://rescue-respond:8090")
+PB_INTERNAL_URL = os.getenv("PB_INTERNAL_URL", "http://sar-respond:8090")
 
 def check_auth(token):
     """

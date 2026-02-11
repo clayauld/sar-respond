@@ -8,10 +8,10 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
     depends_on:
-      - rescue-respond-azure
+      - sar-respond-azure
       - caltopo-api
 
-  rescue-respond-azure:
+  sar-respond-azure:
     build: 
       context: .
       dockerfile: Dockerfile.azure
@@ -38,7 +38,8 @@ services:
     env_file:
       - .env
     environment:
-      - RATELIMIT_STORAGE_URI=redis://redis:6379
+      - RATELIMIT_STORAGE_URI=${RATELIMIT_STORAGE_URI:-redis://redis:6379}
+      - PB_INTERNAL_URL=${PB_INTERNAL_URL:-http://sar-respond-azure:8090}
     depends_on:
       - redis
 

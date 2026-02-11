@@ -8,10 +8,10 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
     depends_on:
-      - rescue-respond
+      - sar-respond
       - caltopo-api
 
-  rescue-respond:
+  sar-respond:
     build: .
     image: ghcr.io/clayauld/sar-respond-frontend:${TAG:-latest}
     container_name: sar-respond-frontend
@@ -36,7 +36,8 @@ services:
     env_file:
       - .env
     environment:
-      - RATELIMIT_STORAGE_URI=redis://redis:6379
+      - RATELIMIT_STORAGE_URI=${RATELIMIT_STORAGE_URI:-redis://redis:6379}
+      - PB_INTERNAL_URL=${PB_INTERNAL_URL:-http://sar-respond:8090}
     depends_on:
       - redis
 
