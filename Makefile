@@ -77,14 +77,16 @@ VERSION := $(shell grep '"version":' package.json | cut -d '"' -f 4)
 
 docker-release:
 	@echo "Releasing version $(VERSION)..."
-	TAG=$(VERSION) docker compose build sar-respond caltopo-api
-	TAG=$(VERSION) docker compose -f docker-compose-azure.yml build sar-respond-azure
-	TAG=latest docker compose build sar-respond caltopo-api
-	TAG=latest docker compose -f docker-compose-azure.yml build sar-respond-azure
-	TAG=$(VERSION) docker compose push sar-respond caltopo-api
-	TAG=$(VERSION) docker compose -f docker-compose-azure.yml push sar-respond-azure
-	TAG=latest docker compose push sar-respond caltopo-api
-	TAG=latest docker compose -f docker-compose-azure.yml push sar-respond-azure
+	@for tag in $(VERSION) latest; do \
+		echo "--- Building for tag $$tag ---"; \
+		TAG=$$tag docker compose build sar-respond caltopo-api; \
+		TAG=$$tag docker compose -f docker-compose-azure.yml build sar-respond-azure; \
+	done
+	@for tag in $(VERSION) latest; do \
+		echo "--- Pushing for tag $$tag ---"; \
+		TAG=$$tag docker compose push sar-respond caltopo-api; \
+		TAG=$$tag docker compose -f docker-compose-azure.yml push sar-respond-azure; \
+	done
 	@echo "Successfully pushed version $(VERSION) and latest to GHCR."
 
 clean:
