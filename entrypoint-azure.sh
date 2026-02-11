@@ -1,29 +1,57 @@
 #!/bin/sh
 set -e
 
-# Path to the SQLite database
-# Note: In the Dockerfile, we will set up /pb/pb_data as the data directory
+# --- Configuration ---
 DB_PATH="/pb/pb_data/data.db"
 LITESTREAM_CONFIG="/etc/litestream.yml"
 
-# 1. Restore the database if it does not exist locally
-if [ ! -f "$DB_PATH" ]; then
-    echo "[Litestream] No local database found. Attempting to restore from Azure Blob Storage..."
-    # -if-replica-exists prevents errors on the very first boot when the blob is empty
-    # We use /usr/local/bin/litestream assuming that's where we install it
-    litestream restore -if-replica-exists -config "$LITESTREAM_CONFIG" "$DB_PATH"
-    echo "[Litestream] Restore complete."
+# --- 1. Environment Setup ---
+
+# # Map Container App secret to expected variable if needed
+# if [ -z "$AZURE_STORAGE_KEY" ] && [ -n "$LITESTREAM_AZURE_ACCOUNT_KEY" ]; then
+#     export AZURE_STORAGE_KEY="$LITESTREAM_AZURE_ACCOUNT_KEY"
+# fi
+
+# # Sanitize credentials (remove whitespace)
+# export AZURE_STORAGE_KEY=$(echo "$AZURE_STORAGE_KEY" | tr -d '[:space:]')
+# export AZURE_STORAGE_ACCOUNT=$(echo "$AZURE_STORAGE_ACCOUNT" | tr -d '[:space:]')
+
+# # --- 2. Generate Litestream Config ---
+# echo "[Entrypoint] Generating Litestream configuration..."
+# cat <<EOF > "$LITESTREAM_CONFIG"
+# dbs:
+#   - path: $DB_PATH
+#     replicas:
+#       - type: abs
+#         endpoint: https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net
+#         bucket: ${AZURE_STORAGE_CONTAINER}
+#         account-name: "${AZURE_STORAGE_ACCOUNT}"
+#         account-key: "${AZURE_STORAGE_KEY}"
+#         path: pb_data.db
+#         validation-interval: "1h"
+# EOF
+
+# --- 1. Connectivity Check ---
+echo "[Entrypoint] Verifying connectivity to Azure Blob Storage..."
+if curl -I -m 5 "https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net"; then
+    echo "[Entrypoint] Connection successful."
 else
-    echo "[Litestream] Local database already exists. Skipping restore."
+    echo "[Entrypoint] WARNING: Connection check failed. Check DNS or Networking."
 fi
 
+# --- 2. Database Restoration ---
+if [ ! -f "$DB_PATH" ]; then
+    echo "[Entrypoint] No local database found. Attempting restore..."
+    # -if-replica-exists prevents errors on first boot
+    litestream restore -if-replica-exists -config "$LITESTREAM_CONFIG" "$DB_PATH"
+    echo "[Entrypoint] Restore complete."
+else
+    echo "[Entrypoint] Local database found. Skipping restore."
+fi
 
-# 2. Generate runtime config from environment variables (Frontend Requirement)
-# This was originally in docker-entrypoint.sh
-echo "[Frontend] Generating runtime config..."
-# Ensure the directory exists
+# --- 3. Frontend Configuration ---
+echo "[Entrypoint] Generating frontend runtime config..."
 mkdir -p /pb/pb_public
-
 cat <<EOF > /pb/pb_public/env-config.js
 window._env_ = {
   ORG_NAME: "${ORG_NAME}",
@@ -32,12 +60,7 @@ window._env_ = {
   MISSION_LOCATION_PLACEHOLDER: "${MISSION_LOCATION_PLACEHOLDER}",
 };
 EOF
-echo "[Frontend] runtime config generated at /pb/pb_public/env-config.js"
 
-
-# 3. Start Litestream, which in turn executes PocketBase as a child process.
-# Litestream will continuously replicate changes to Azure.
-echo "[Litestream] Starting replication and launching PocketBase..."
-# Note: Adjusted path to where PocketBase is likely installed in the final image (/usr/local/bin or /pb)
-# Based on the plan, we are putting binaries in /usr/local/bin for standard path access
-exec litestream replicate -config "$LITESTREAM_CONFIG" -exec "/usr/local/bin/pocketbase serve --http=0.0.0.0:8090 --dir=/pb/pb_data"
+# --- 4. Start Application ---
+echo "[Entrypoint] Starting Litestream replication and PocketBase..."
+exec litestream replicate -config "$LITESTREAM_CONFIG" -exec "/usr/local/bin/pocketbase serve --http=0.0.0.0:8090 --dir=/pb/pb_data --publicDir=/pb/pb_public"

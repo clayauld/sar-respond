@@ -13,4 +13,4 @@ EOF
 
 # Start PocketBase
 echo "Starting PocketBase..."
-exec /pb/pocketbase serve --http=0.0.0.0:8090
+exec /usr/local/bin/pocketbase serve --http=0.0.0.0:8090 --dir=/pb/pb_data --publicDir=/pb/pb_public

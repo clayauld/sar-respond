@@ -10,7 +10,7 @@ RUN npm run build
 FROM alpine:3.19 AS downloader
 
 ARG PB_VERSION=0.22.21
-ARG LS_VERSION=v0.3.13
+ARG LS_VERSION=0.5.7
 
 # Install wget and unzip
 RUN apk add --no-cache wget unzip
@@ -20,15 +20,14 @@ RUN wget https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSIO
     && unzip pocketbase_${PB_VERSION}_linux_amd64.zip -d /pb
 
 # Download and extract Litestream
-RUN wget https://github.com/benbjohnson/litestream/releases/download/${LS_VERSION}/litestream-${LS_VERSION}-linux-amd64.tar.gz \
-    && tar -xzf litestream-${LS_VERSION}-linux-amd64.tar.gz -C /pb
+RUN wget https://github.com/benbjohnson/litestream/releases/download/v${LS_VERSION}/litestream-${LS_VERSION}-linux-x86_64.tar.gz \
+    && tar -xzf litestream-${LS_VERSION}-linux-x86_64.tar.gz -C /pb
 
 # Stage 3: Build the final image
 FROM alpine:3.19
 
-# Install ca-certificates required for HTTPS communication with Azure
-# Install bash and sqlite for potential debugging or script usage
-RUN apk add --no-cache ca-certificates bash sqlite
+# Install ca-certificates (required for HTTPS) and curl (for connectivity check)
+RUN apk add --no-cache ca-certificates bash sqlite curl
 
 # Copy binaries from downloader
 COPY --from=downloader /pb/pocketbase /usr/local/bin/pocketbase
@@ -43,7 +42,7 @@ RUN mkdir -p /pb/pb_data /pb/pb_public /pb/pb_migrations
 # Copy the built React app from Stage 1 into PocketBase's public directory
 COPY --from=frontend-builder /app/dist /pb/pb_public
 
-# Copy migrations (if any exist in the repo)
+# Copy migrations
 COPY pb_migrations /pb/pb_migrations
 
 # Copy configuration and entrypoint
@@ -53,5 +52,4 @@ RUN chmod +x /entrypoint.sh
 
 EXPOSE 8090
 
-# Start via the entrypoint script
 CMD ["/entrypoint.sh"]

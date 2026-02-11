@@ -1,10 +1,14 @@
 # /etc/litestream.yml
+# NOTE: This file is overwritten at runtime by entrypoint-azure.sh
+# It serves as a reference for the expected configuration structure.
+
 dbs:
   - path: /pb/pb_data/data.db
     replicas:
       - type: abs # Azure Blob Storage
-        # Litestream automatically picks up AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY env vars
-        endpoint: https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net
-        bucket: ${AZURE_STORAGE_CONTAINER} # Dynamic bucket name from environment variable
+        # endpoint: https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net
+        bucket: ${AZURE_STORAGE_CONTAINER}
+        account-name: "${AZURE_STORAGE_ACCOUNT}"
+        account-key: "${AZURE_STORAGE_KEY}"
         path: pb_data.db
         validation-interval: "1h"

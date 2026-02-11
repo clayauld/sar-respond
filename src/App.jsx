@@ -511,7 +511,8 @@ function RosterManager() {
              passwordConfirm: user.password,
              name: user.name,
              memberId: user.memberId,
-             role: user.role
+             role: user.role,
+             requirePasswordReset: true
            });
            count++;
          } catch (err) {
@@ -529,7 +530,8 @@ function RosterManager() {
                         passwordConfirm: user.password,
                         name: user.name,
                         memberId: user.memberId,
-                        role: user.role
+                        role: user.role,
+                        requirePasswordReset: true
                    });
                    count++;
                    console.log(`Resolved duplicate username for ${user.name}: ${newUsername}`);
