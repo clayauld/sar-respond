@@ -8,13 +8,15 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
     depends_on:
-      - rescue-respond
+      - rescue-respond-azure
       - caltopo-api
 
-  rescue-respond:
-    build: .
-    image: ghcr.io/clayauld/sar-respond-frontend:${TAG:-latest}
-    container_name: sar-respond-frontend
+  rescue-respond-azure:
+    build: 
+      context: .
+      dockerfile: Dockerfile.azure
+    image: ghcr.io/clayauld/sar-respond-azure:${TAG:-latest}
+    container_name: sar-respond-azure
     restart: unless-stopped
     # Ports removed to keep internal-only
     volumes:

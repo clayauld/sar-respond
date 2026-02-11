@@ -31,10 +31,10 @@ COPY pb_migrations /pb/pb_migrations
 VOLUME /pb/pb_data
 
 # Copy and set entrypoint
-COPY docker-entrypoint.sh /pb/docker-entrypoint.sh
-RUN chmod +x /pb/docker-entrypoint.sh
+COPY entrypoint-docker.sh /pb/entrypoint.sh
+RUN chmod +x /pb/entrypoint.sh
 
 EXPOSE 8090
 
 # Entrypoint handles startup
-ENTRYPOINT ["/pb/docker-entrypoint.sh"]
+ENTRYPOINT ["/pb/entrypoint.sh"]

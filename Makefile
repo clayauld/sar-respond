@@ -4,7 +4,7 @@ PB_VERSION := 0.22.21
 PB_FILE := pocketbase_$(PB_VERSION)_linux_amd64.zip
 PB_URL := https://github.com/pocketbase/pocketbase/releases/download/v$(PB_VERSION)/$(PB_FILE)
 
-.PHONY: help install dev build lint test clean docker-up docker-down docker-build setup-local serve-pb
+.PHONY: help install dev build lint test clean docker-up docker-down docker-build setup-local serve-pb docker-azure
 
 help:
 	@echo "Available commands:"
@@ -18,6 +18,7 @@ help:
 	@echo "  make docker-up     - Start the system with Docker"
 	@echo "  make docker-down   - Stop Docker containers"
 	@echo "  make docker-build  - Rebuild Docker images"
+	@echo "  make docker-azure  - Build Docker images for Azure"
 	@echo "  make clean         - Remove build artifacts and dependencies"
 
 install:
@@ -61,6 +62,9 @@ docker-down:
 docker-build:
 	docker compose build
 
+docker-azure:
+	docker compose -f docker-compose-azure.yml build
+
 docker-prod:
 	docker compose down
 	docker compose up -d --build
@@ -74,9 +78,13 @@ VERSION := $(shell grep '"version":' package.json | cut -d '"' -f 4)
 docker-release:
 	@echo "Releasing version $(VERSION)..."
 	TAG=$(VERSION) docker compose build rescue-respond caltopo-api
+	TAG=$(VERSION) docker compose -f docker-compose-azure.yml build rescue-respond-azure
 	TAG=latest docker compose build rescue-respond caltopo-api
+	TAG=latest docker compose -f docker-compose-azure.yml build rescue-respond-azure
 	TAG=$(VERSION) docker compose push rescue-respond caltopo-api
+	TAG=$(VERSION) docker compose -f docker-compose-azure.yml push rescue-respond-azure
 	TAG=latest docker compose push rescue-respond caltopo-api
+	TAG=latest docker compose -f docker-compose-azure.yml push rescue-respond-azure
 	@echo "Successfully pushed version $(VERSION) and latest to GHCR."
 
 clean:
