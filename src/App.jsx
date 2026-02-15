@@ -21,7 +21,7 @@ const pb = new PocketBase(window.location.origin);
 const STATUS_OPTIONS = [
   { id: 'responding', label: 'Responding', color: 'bg-green-600 hover:bg-green-700', icon: CheckCircle2 },
   { id: 'standby', label: 'Standby', color: 'bg-yellow-500 hover:bg-yellow-600', icon: Clock },
-  { id: 'unavailable', label: 'Not Available', color: 'bg-red-600 hover:bg-red-700', icon: XCircle },
+  { id: 'unavailable', label: 'Unavailable', color: 'bg-red-600 hover:bg-red-700', icon: XCircle },
 ];
 
 const ETA_PRESETS = [
