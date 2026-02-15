@@ -1313,7 +1313,7 @@ function LiveRoster({ activeMission, timeFormat }) {
     doc.text(activeMission.title, 14, 20);
     doc.setFontSize(12);
     doc.text(`Location: ${activeMission.location}`, 14, 28);
-    doc.text(`Date: ${new Date().toLocaleString()}`, 14, 34);
+doc.text(`Date: ${new Date().toLocaleString('sv-SE')}`, 14, 34);
 
     // Table Data
     const tableData = sorted.map(res => {
