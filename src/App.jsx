@@ -1337,7 +1337,7 @@ function LiveRoster({ activeMission, timeFormat }) {
         headStyles: { fillColor: [220, 38, 38] }, // Red header
     });
 
-    doc.save(`Roster_${activeMission.title.replace(/\s+/g, '_')}.pdf`);
+doc.save(`Roster_${activeMission.title.replace(/[\\/\:"*?<>|]+/g, '_').replace(/\s+/g, '_')}.pdf`);
   };
 
   return (
