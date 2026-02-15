@@ -802,7 +802,7 @@ function MissionControl({ user, timeFormat }) {
 
                 {activeMission.mapUrl && (
                     <a
-                    href={activeMission.mapUrl}
+                    href={/^https?:\/\//.test(activeMission.mapUrl) ? activeMission.mapUrl : '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 rounded-xl border border-blue-200 font-bold hover:bg-blue-100 transition-colors text-sm whitespace-nowrap self-start sm:self-auto"
