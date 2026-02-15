@@ -1318,13 +1318,13 @@ doc.text(`Date: ${new Date().toLocaleString('sv-SE')}`, 14, 34);
     // Table Data
     const tableData = sorted.map(res => {
         const user = res.expand?.user || { name: 'Unknown', role: '?', memberId: '?' };
-        const statusConfig = STATUS_OPTIONS.find(o => o.id === res.status) || STATUS_OPTIONS[0];
+        const statusConfig = STATUS_OPTIONS.find(o => o.id === res.status);
 
         return [
             user.name,
             user.role,
             user.memberId,
-            statusConfig.label,
+            statusConfig ? statusConfig.label : (res.status || 'Unknown'),
             res.status === 'responding' ? formatDisplayTime(res.eta, timeFormat) : '-'
         ];
     });
