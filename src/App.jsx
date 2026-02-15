@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PocketBase from 'pocketbase';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { 
   AlertCircle, Map, Navigation, Users, CheckCircle2, 
   XCircle, Clock, Radio, LogOut, ShieldAlert, 
   ChevronRight, Upload, QrCode, Trash2, Lock, 
-  Archive, RefreshCw, Key, UserCog, Pencil
+  Archive, RefreshCw, Key, UserCog, Pencil, FileDown
 } from 'lucide-react';
 import ChangePasswordModal from './ChangePasswordModal';
 import ChangeUsernameModal from './ChangeUsernameModal';
@@ -19,15 +21,16 @@ const pb = new PocketBase(window.location.origin);
 const STATUS_OPTIONS = [
   { id: 'responding', label: 'Responding', color: 'bg-green-600 hover:bg-green-700', icon: CheckCircle2 },
   { id: 'standby', label: 'Standby', color: 'bg-yellow-500 hover:bg-yellow-600', icon: Clock },
-  { id: 'unavailable', label: 'Not Available', color: 'bg-red-600 hover:bg-red-700', icon: XCircle },
+  { id: 'unavailable', label: 'Unavailable', color: 'bg-red-600 hover:bg-red-700', icon: XCircle },
 ];
 
 const ETA_PRESETS = [
-  { label: '15m', minutes: 15 },
+  { label: '10m', minutes: 10 },
+  { label: '20m', minutes: 20 },
   { label: '30m', minutes: 30 },
-  { label: '45m', minutes: 45 },
-  { label: '1h', minutes: 60 },
-  { label: '1.5h', minutes: 90 },
+  { label: '40m', minutes: 40 },
+  { label: '50m', minutes: 50 },
+  { label: '60m', minutes: 60 },
 ];
 
 // --- Helpers ---
@@ -104,7 +107,7 @@ export default function RescueRespond() {
   const [loading, setLoading] = useState(false);
   const [showChangePw, setShowChangePw] = useState(pb.authStore.model?.requirePasswordReset || false);
   const [showChangeUsername, setShowChangeUsername] = useState(false);
-  const [timeFormat, setTimeFormat] = useState(localStorage.getItem('timeFormat') || '24h');
+  const [timeFormat, setTimeFormat] = useState(localStorage.getItem('timeFormat') || '12h');
 
   // Persist time format preference
   useEffect(() => {
@@ -753,9 +756,9 @@ function MissionControl({ user, timeFormat }) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border-l-8 border-red-600 overflow-hidden">
+    <div className="flex flex-col gap-6">
+      {/* Mission Details Header */}
+      <div className="bg-white rounded-2xl shadow-sm border-l-8 border-red-600 overflow-hidden">
           <div className="p-4">
             <div className="flex justify-between items-start mb-4">
               <div>
@@ -788,34 +791,42 @@ function MissionControl({ user, timeFormat }) {
             </div>
             
             <div className="space-y-4">
-              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <Navigation className="w-6 h-6 text-slate-400 mt-1 shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Location</p>
-                  <p className="text-base font-medium text-slate-800">{activeMission.location}</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 flex-grow">
+                    <Navigation className="w-6 h-6 text-slate-400 mt-1 shrink-0" />
+                    <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Location</p>
+                    <p className="text-base font-medium text-slate-800">{activeMission.location}</p>
+                    </div>
                 </div>
-              </div>
 
-              {activeMission.mapUrl && (
-                <a 
-                  href={activeMission.mapUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full p-3 bg-blue-50 text-blue-700 rounded-xl border border-blue-200 font-bold hover:bg-blue-100 transition-colors text-sm"
-                >
-                  <Map className="w-4 h-4" />
-                  Open CalTopo Map
-                </a>
-              )}
+                {activeMission.mapUrl && (
+                    <a
+                    href={/^https?:\/\//.test(activeMission.mapUrl) ? activeMission.mapUrl : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 rounded-xl border border-blue-200 font-bold hover:bg-blue-100 transition-colors text-sm whitespace-nowrap self-start sm:self-auto"
+                    >
+                    <Map className="w-4 h-4" />
+                    CalTopo Map
+                    </a>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-
-        <ResponderActions activeMission={activeMission} user={user} />
       </div>
 
-      <div className="lg:col-span-1">
-        <LiveRoster activeMission={activeMission} timeFormat={timeFormat} />
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Roster (Priority) */}
+        <div className="lg:col-span-2 order-1">
+             <LiveRoster activeMission={activeMission} timeFormat={timeFormat} />
+        </div>
+
+        {/* Right: Actions */}
+        <div className="lg:col-span-1 order-2">
+             <ResponderActions activeMission={activeMission} user={user} />
+        </div>
       </div>
 
       {showEditMission && (
@@ -1204,10 +1215,10 @@ function ResponderActions({ activeMission, user }) {
                 <button
                     key={opt.id}
                     onClick={() => updateStatus(opt.id)}
-                    className={`${mobileColSpan} sm:col-span-1 p-3 rounded-lg border flex flex-row sm:flex-col items-center justify-center gap-2 ${isSelected ? `${opt.color} text-white border-transparent` : 'bg-white text-slate-600'}`}
+                    className={`${mobileColSpan} sm:col-span-1 p-4 rounded-lg border flex flex-row sm:flex-col items-center justify-center gap-2 ${isSelected ? `${opt.color} text-white border-transparent` : 'bg-white text-slate-600'}`}
                 >
-                    <Icon className="w-6 h-6 sm:w-8 sm:h-8" />
-                    <span className="font-bold text-sm sm:text-base">{opt.label}</span>
+                    <Icon className="w-5 h-5 sm:w-8 sm:h-8" />
+                    <span className="font-bold text-xs sm:text-sm">{opt.label}</span>
                 </button>
             )
         })}
@@ -1294,10 +1305,53 @@ function LiveRoster({ activeMission, timeFormat }) {
     return 0;
   });
 
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFontSize(18);
+    doc.text(activeMission.title, 14, 20);
+    doc.setFontSize(12);
+    doc.text(`Location: ${activeMission.location}`, 14, 28);
+doc.text(`Date: ${new Date().toLocaleString('sv-SE')}`, 14, 34);
+
+    // Table Data
+    const tableData = sorted.map(res => {
+        const user = res.expand?.user || { name: 'Unknown', role: '?', memberId: '?' };
+        const statusConfig = STATUS_OPTIONS.find(o => o.id === res.status);
+
+        return [
+            user.name,
+            user.role,
+            user.memberId,
+            statusConfig ? statusConfig.label : (res.status || 'Unknown'),
+            res.status === 'responding' ? formatDisplayTime(res.eta, timeFormat) : '-'
+        ];
+    });
+
+    autoTable(doc, {
+        startY: 40,
+        head: [['Name', 'Role', 'ID', 'Status', 'ETA']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [220, 38, 38] }, // Red header
+    });
+
+doc.save(`Roster_${activeMission.title.replace(/[\\/\:"*?<>|]+/g, '_').replace(/\s+/g, '_')}.pdf`);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
-       <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold">
-         Roster ({sorted.length})
+       <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold flex justify-between items-center">
+         <span>Roster ({sorted.length})</span>
+         <button
+           onClick={handleExportPDF}
+           className="flex items-center gap-1 text-xs bg-slate-200 hover:bg-slate-300 px-2 py-1.5 rounded font-bold text-slate-700 transition-colors"
+           title="Export as PDF"
+         >
+           <FileDown className="w-3 h-3" />
+           PDF
+         </button>
        </div>
        <div className="flex-grow overflow-y-auto p-2 space-y-2 max-h-[500px]">
          {sorted.map(res => {
