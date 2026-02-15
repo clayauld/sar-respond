@@ -1215,10 +1215,10 @@ function ResponderActions({ activeMission, user }) {
                 <button
                     key={opt.id}
                     onClick={() => updateStatus(opt.id)}
-                    className={`${mobileColSpan} sm:col-span-1 p-3 rounded-lg border flex flex-row sm:flex-col items-center justify-center gap-2 ${isSelected ? `${opt.color} text-white border-transparent` : 'bg-white text-slate-600'}`}
+                    className={`${mobileColSpan} sm:col-span-1 p-2 sm:p-3 rounded-lg border flex flex-row sm:flex-col items-center justify-center gap-2 ${isSelected ? `${opt.color} text-white border-transparent` : 'bg-white text-slate-600'}`}
                 >
-                    <Icon className="w-6 h-6 sm:w-8 sm:h-8" />
-                    <span className="font-bold text-sm sm:text-base">{opt.label}</span>
+                    <Icon className="w-5 h-5 sm:w-8 sm:h-8" />
+                    <span className="font-bold text-xs sm:text-sm">{opt.label}</span>
                 </button>
             )
         })}
